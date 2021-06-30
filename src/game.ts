@@ -17,11 +17,9 @@ import Uniform from 'rot-js/lib/map/uniform';
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
     bg: 'black',
-    tileWidth: 16,
-    tileHeight: 16,
-    tileSet: null,
-    tileMap: {},
-    tileColorize: true,
+    fontSize: 20,
+    spacing: 1.2,
+    fontFamily: 'monospace',
     width: WIDTH,
     height: HEIGHT,
 };
@@ -70,6 +68,7 @@ export default class Game {
                 },
                 Renderable: {
                     char: '@',
+                    bg: 'rgba(0,0,0,0)',
                 },
             },
         });
@@ -124,9 +123,6 @@ export default class Game {
         this.map.create((col, row, contents) => {
             const tile = this.world.createEntity({
                 c: {
-                    // Tile: {
-                    //     passable: !!v,
-                    // },
                     Position: {
                         x: col,
                         y: row,

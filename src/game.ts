@@ -1,6 +1,6 @@
 import * as ROT from 'rot-js';
-import { DisplayOptions } from 'rot-js/lib/display/types';
-import { Entity, Query, World } from 'ape-ecs';
+import {DisplayOptions} from 'rot-js/lib/display/types';
+import {Entity, Query, World} from 'ape-ecs';
 
 import ActionMove from './components/actionmove';
 import Position from './components/position';
@@ -9,26 +9,32 @@ import Renderable from './components/renderable';
 import ActionSystem from './systems/action';
 import RenderSystem from './systems/render';
 
+import {makeDungeon} from './level-generation/generator';
+import {makeNoiseMaps} from './level-generation/color';
+import {HEIGHT, WIDTH} from './level-generation/constants';
+import Uniform from 'rot-js/lib/map/uniform';
+
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
-    bg: "black",
+    bg: 'black',
     tileWidth: 16,
     tileHeight: 16,
     tileSet: null,
-    tileMap: {
-    },
+    tileMap: {},
     tileColorize: true,
-    width: 40,
-    height: 40
+    width: WIDTH,
+    height: HEIGHT,
 };
 
 export default class Game {
     display: ROT.Display;
     world: World;
     globalEntity: Entity;
+    mapEntity: Entity;
     lastUpdate: number;
     tickTime: number;
     playerQuery: Query;
+    map: Uniform;
 
     constructor(container: HTMLElement, logdiv: HTMLElement, tileSet: HTMLImageElement) {
         this.display = new ROT.Display(options);
@@ -42,6 +48,16 @@ export default class Game {
         this.world.registerComponent(Position);
         this.world.registerComponent(ActionMove);
         this.world.registerComponent(Renderable);
+
+        this.makeMap();
+        this.mapEntity = this.world.createEntity({
+            id: 'map',
+            Map: {
+                width: WIDTH,
+                height: HEIGHT,
+                map: this.map,
+            },
+        });
         this.world.registerTags('Character', 'PlayerControlled');
         this.world.registerSystem('everyframe', ActionSystem);
         this.world.registerSystem('render', RenderSystem, [this.display]);
@@ -55,42 +71,41 @@ export default class Game {
                 Renderable: {
                     char: '@',
                 },
-            }
-        })
+            },
+        });
 
         this.playerQuery = this.world.createQuery().fromAll('PlayerControlled');
-        window.addEventListener('keydown', (e) => {
+        window.addEventListener('keydown', e => {
             const entities = this.playerQuery.refresh().execute();
             for (const player of entities) {
                 switch (e.code) {
                     case 'ArrowUp':
                         player.addComponent({
                             type: 'ActionMove',
-                            y: -1
+                            y: -1,
                         });
                         break;
                     case 'ArrowDown':
                         player.addComponent({
                             type: 'ActionMove',
-                            y: 1
+                            y: 1,
                         });
                         break;
                     case 'ArrowLeft':
                         player.addComponent({
                             type: 'ActionMove',
-                            x: -1
+                            x: -1,
                         });
                         break;
                     case 'ArrowRight':
                         player.addComponent({
                             type: 'ActionMove',
-                            x: 1
+                            x: 1,
                         });
                         break;
                 }
             }
         });
-
     }
 
     update(time: number) {
@@ -101,5 +116,27 @@ export default class Game {
         this.world.runSystems('everyframe');
         this.world.runSystems('render');
         this.world.tick();
+    }
+
+    makeMap() {
+        this.map = new Uniform(WIDTH, HEIGHT, {});
+        const {dungeon, colorizedDungeon} = makeDungeon(WIDTH, HEIGHT);
+        this.map.create((col, row, contents) => {
+            const tile = this.world.createEntity({
+                c: {
+                    // Tile: {
+                    //     passable: !!v,
+                    // },
+                    Position: {
+                        x: col,
+                        y: row,
+                    },
+                    Renderable: {
+                        char: dungeon[row][col].letter,
+                        ...colorizedDungeon[row][col],
+                    },
+                },
+            });
+        });
     }
 }

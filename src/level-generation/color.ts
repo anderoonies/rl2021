@@ -178,8 +178,8 @@ const colorizeCellTwoPointOh = ({
 
         if (cell.color.dances) {
             return {
-                fg: {...color.fg, dancing: {deviations: fgColorRules.variance, period: 10000}},
-                bg: {...color.bg, dancing: {deviations: bgColorRules.variance, period: 10000}},
+                fg: {...color.fg, dancing: {deviations: fgColorRules.variance, period: 100}},
+                bg: {...color.bg, dancing: {deviations: bgColorRules.variance, period: 100}},
             };
         } else {
             return color;

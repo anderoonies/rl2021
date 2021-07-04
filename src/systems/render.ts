@@ -1,12 +1,8 @@
 import {Color as ROTColor, Display} from 'rot-js';
-import * as Color from 'color';
-import {Query, System} from 'ape-ecs';
-
-import Position from '../components/position';
-import Renderable from '../components/renderable';
-import Light from '../components/light';
 import {RGBColor} from '../level-generation/types';
-import DancingColor from '../components/dancingcolor';
+import * as Color from 'color';
+import {Changed, defineQuery, defineSystem, hasComponent} from 'bitecs';
+import {DancingColor, Light, Position, Renderable} from '../components';
 
 const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
     if (a !== undefined) {
@@ -16,112 +12,81 @@ const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
     }
 };
 
-class RenderSystem extends System {
-    renderQuery: Query;
-    display: Display;
-
-    init(display: Display) {
-        this.renderQuery = this.createQuery()
-            .fromAll(Renderable, Position)
-            .fromAny(DancingColor, Light);
-        this.display = display;
-    }
-
-    update(dt: number) {
-        const entities = this.renderQuery.execute();
-        const map = this.world.getEntity('map');
-        for (const entity of entities) {
-            const positions: Set<Position> = entity.getComponents(Position);
-            for (const position of positions) {
-                let baseFG: RGBColor;
-                let baseBG: RGBColor;
-                let char;
-                for (const renderable of entity.getComponents(Renderable)) {
-                    const dancing = entity.getOne(DancingColor);
-                    if (renderable.char === '@') {
-                        debugger;
-                    }
-                    if (typeof renderable.baseFG === 'string') {
-                        const fgArray = ROTColor.fromString(renderable.baseFG);
-                        baseFG = {
-                            r: fgArray[0],
-                            g: fgArray[1],
-                            b: fgArray[2],
-                        } as RGBColor;
-                    }
-                    if (typeof renderable.baseBG === 'string') {
-                        const bgArray = ROTColor.fromString(renderable.baseBG);
-
-                        baseBG = {
-                            r: bgArray[0],
-                            g: bgArray[1],
-                            b: bgArray[2],
-                        } as RGBColor;
-                    }
-                    if (typeof renderable.baseFG === 'object') {
-                        baseFG = {...renderable.baseFG};
-                    }
-                    if (typeof renderable.baseBG === 'object') {
-                        baseBG = {...renderable.baseBG};
-                    }
-                    if (dancing) {
-                        if (dancing.timer <= 0) {
-                            let variation = dancing.deviations;
-                            dancing.update({timer: dancing.period});
-                            const mixed = ROTColor.randomize(
-                                [baseBG.r, baseBG.g, baseBG.b],
-                                [variation.r / 2, variation.g / 2, variation.b / 2]
-                            );
-                            renderable.update({
-                                bg: {
-                                    r: mixed[0],
-                                    g: mixed[1],
-                                    b: mixed[2],
-                                },
-                            });
-                        }
-                        baseBG = {
-                            r: renderable.bg.r,
-                            g: renderable.bg.g,
-                            b: renderable.bg.b,
-                            alpha: renderable.bg.alpha,
-                        };
-                        baseFG = {
-                            r: renderable.fg.r,
-                            g: renderable.fg.g,
-                            b: renderable.fg.b,
-                            alpha: renderable.bg.alpha,
-                        };
-                        dancing.update({timer: (dancing.timer -= dt)});
-                    }
-                    char = renderable.char;
-                }
-                const lights = entity.getComponents(Light);
-
-                for (const light of lights) {
-                    baseBG = {
-                        r: baseBG.r + light.r,
-                        g: baseBG.g + light.g,
-                        b: baseBG.b + light.b,
-                        alpha: baseBG.alpha,
-                    };
-                    baseFG = {
-                        r: baseFG.r + light.r,
-                        g: baseFG.g + light.g,
-                        b: baseFG.b + light.b,
-                        alpha: baseFG.alpha,
-                    };
-                }
-                this.display.draw(
-                    position.x,
-                    position.y,
-                    char,
-                    toRGBA([baseFG.r, baseFG.g, baseFG.b, baseFG.alpha]),
-                    toRGBA([baseBG.r, baseBG.g, baseBG.b, baseBG.alpha])
-                );
-            }
+const renderableQuery = defineQuery([Renderable, Position]);
+export default defineSystem(world => {
+    const renderableEntities = renderableQuery(world);
+    let char;
+    let fg;
+    let bg;
+    for (const eid of renderableEntities) {
+        fg = {
+            r: Renderable.baseFG.r[eid],
+            g: Renderable.baseFG.g[eid],
+            b: Renderable.baseFG.b[eid],
+            alpha: Renderable.baseFG.alpha[eid],
+        };
+        bg = {
+            r: Renderable.baseBG.r[eid],
+            g: Renderable.baseBG.g[eid],
+            b: Renderable.baseBG.b[eid],
+            alpha: Renderable.baseBG.alpha[eid],
+        };
+        char = world.charMap.get(eid);
+        if (char === '@') {
+            debugger;
         }
+        if (hasComponent(world, DancingColor, eid)) {
+            const dancingTimer = DancingColor.timer[eid];
+            const dancingPeriod = DancingColor.period[eid];
+            if (dancingTimer <= 0) {
+                const dancingDeviations = {
+                    r: DancingColor.deviations.r[eid],
+                    g: DancingColor.deviations.g[eid],
+                    b: DancingColor.deviations.b[eid],
+                };
+                DancingColor.timer[eid] = DancingColor.period[eid];
+                const mixed = ROTColor.randomize(
+                    [bg.r, bg.g, bg.b],
+                    [dancingDeviations.r / 2, dancingDeviations.g / 2, dancingDeviations.b / 2]
+                );
+                Renderable.bg.r[eid] = mixed[0];
+                Renderable.bg.g[eid] = mixed[1];
+                Renderable.bg.b[eid] = mixed[2];
+            }
+            fg = {
+                r: Renderable.fg.r[eid],
+                g: Renderable.fg.g[eid],
+                b: Renderable.fg.b[eid],
+            };
+            bg = {
+                r: Renderable.bg.r[eid],
+                g: Renderable.bg.g[eid],
+                b: Renderable.bg.b[eid],
+            };
+            DancingColor.timer[eid] -= world.time.delta;
+        }
+        if (hasComponent(world, Light, eid)) {
+            bg = {
+                r: bg.r + Light.r[eid],
+                g: bg.g + Light.g[eid],
+                b: bg.b + Light.b[eid],
+                alpha: bg.alpha,
+            };
+            fg = {
+                r: fg.r + Light.r[eid],
+                g: fg.g + Light.g[eid],
+                b: fg.b + Light.b[eid],
+                alpha: fg.alpha,
+            };
+        }
+        debugger;
+        world.display.draw(
+            Position.x[eid],
+            Position.y[eid],
+            char,
+            toRGBA([fg.r, fg.g, fg.b, fg.alpha]),
+            toRGBA([bg.r, bg.g, bg.b, bg.alpha])
+        );
     }
-}
-
-export default RenderSystem;
+    return world;
+});

@@ -2,7 +2,7 @@ import Dungeon from 'rot-js/lib/map/dungeon';
 import {CELL_WIDTH} from './constants';
 
 import {BRIGHT_THRESHOLD, DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX} from './constants';
-import {AnnotatedCell, CellColor, DungeonGrid, LightSource} from './types';
+import {AnnotatedCell, CellColor, Grid, LightSource, RGBColor} from './types';
 import * as Color from 'color';
 import {rgb} from 'color-convert/route';
 
@@ -62,8 +62,8 @@ const cast = ({
     transform: {xx: number; xy: number; yx: number; yy: number};
     row: number;
     col: number;
-    dungeon: DungeonGrid<AnnotatedCell>;
-    light: DungeonGrid<0 | 1>;
+    dungeon: Grid<AnnotatedCell>;
+    light: Grid<0 | 1>;
 }): void => {
     let currentCol;
     let previousWasBlocked = false;
@@ -128,7 +128,7 @@ const cast = ({
     }
 };
 
-export const scan = (player: {x: number; y: number}, dungeon: DungeonGrid<AnnotatedCell>) => {
+export const scan = (player: {x: number; y: number}, dungeon: Grid<AnnotatedCell>) => {
     // we're viewing a FOV of the dungeon, but memory is everything, so we need to offset
     let updatedLight = new Array(dungeon.length)
         .fill(DARKNESS_MAX)
@@ -157,10 +157,10 @@ const getFOVMask = ({
     col,
     dungeon,
 }: {
-    grid: DungeonGrid<0 | 1>;
+    grid: Grid<0 | 1>;
     row: number;
     col: number;
-    dungeon: DungeonGrid<AnnotatedCell>;
+    dungeon: Grid<AnnotatedCell>;
 }) => {
     let light = gridFromDimensions(HEIGHT, WIDTH, 0);
     for (var octant = 0; octant < 8; octant++) {
@@ -188,7 +188,7 @@ const paintLight = ({
     lightSource: LightSource;
     row: number;
     col: number;
-    dungeon: DungeonGrid<AnnotatedCell>;
+    dungeon: Grid<AnnotatedCell>;
     lightMap: Array<Array<{r: number; g: number; b: number}>>;
 }) => {
     const radius = Math.floor(randomRange(lightSource.minRadius, lightSource.maxRadius) / 100);
@@ -257,11 +257,21 @@ const paintLight = ({
 export const lightDungeon = ({
     dungeon,
     colors,
+    mutate,
 }: {
-    dungeon: DungeonGrid<AnnotatedCell>;
-    colors: Array<Array<{fg: Color<rgb>; bg: Color<rgb>}>>;
-}) => {
+    dungeon: Grid<AnnotatedCell>;
+    colors: Grid<{fg: RGBColor; bg: RGBColor}>;
+    mutate: boolean;
+}): {
+    mixedColors: Grid<{fg: RGBColor; bg: RGBColor}>;
+    lightColors: Grid<RGBColor | undefined>;
+} => {
     let lightMap = gridFromDimensions(HEIGHT, WIDTH, undefined);
+    let lightColors: Grid<RGBColor | undefined> = gridFromDimensions(
+        colors.length,
+        colors[0].length,
+        undefined
+    );
     for (let row = 0; row < HEIGHT; row++) {
         for (let col = 0; col < WIDTH; col++) {
             if (dungeon[row][col].glowLight) {
@@ -275,21 +285,26 @@ export const lightDungeon = ({
             }
         }
     }
+    let lightColor: RGBColor;
     for (let row = 0; row < HEIGHT; row++) {
         for (let col = 0; col < WIDTH; col++) {
+            lightColor = lightMap[row][col];
             if (lightMap[row][col]) {
-                colors[row][col].fg = Color({
-                    r: colors[row][col].fg.red() + lightMap[row][col].r,
-                    g: colors[row][col].fg.green() + lightMap[row][col].g,
-                    b: colors[row][col].fg.blue() + lightMap[row][col].b,
-                });
-                colors[row][col].bg = Color({
-                    r: colors[row][col].bg.red() + lightMap[row][col].r,
-                    g: colors[row][col].bg.green() + lightMap[row][col].g,
-                    b: colors[row][col].bg.blue() + lightMap[row][col].b,
-                });
+                if (mutate) {
+                    colors[row][col].fg = {
+                        r: Math.floor(colors[row][col].fg.r + lightColor.r),
+                        g: Math.floor(colors[row][col].fg.g + lightColor.g),
+                        b: Math.floor(colors[row][col].fg.b + lightColor.b),
+                    };
+                    colors[row][col].bg = {
+                        r: Math.floor(colors[row][col].bg.r + lightColor.r),
+                        g: Math.floor(colors[row][col].bg.g + lightColor.g),
+                        b: Math.floor(colors[row][col].bg.b + lightColor.b),
+                    };
+                }
+                lightColors[row][col] = lightColor;
             }
         }
     }
-    return colors;
+    return {mixedColors: colors, lightColors};
 };

@@ -1,5 +1,5 @@
 import {PERLIN_COLORS, RANDOM_COLORS, WIDTH, HEIGHT, PERLIN_PERIOD, CELLS} from './constants';
-import {AnnotatedCell, CellConstant, CellType, Dungeon, DungeonGrid, PerlinColor} from './types';
+import {AnnotatedCell, CellColor, Grid, RGBColor} from './types';
 import * as Color from 'color';
 
 import {gridFromDimensions, randomRange} from './utils';
@@ -114,7 +114,7 @@ const generateNoiseMap = ({
     });
 };
 
-const colorizeCell = ({
+const applyVariance = ({
     baseColor,
     noise,
     variance,
@@ -122,17 +122,17 @@ const colorizeCell = ({
     baseColor: {r: number; g: number; b: number; alpha?: number};
     noise: {r: number; g: number; b: number};
     variance: {r: number; g: number; b: number; overall: number};
-}): Color => {
+}): RGBColor => {
     const shift = randomRange(0, variance.overall);
     const r = clampColor(Math.floor(baseColor.r + noise.r * variance.r + shift));
     const g = clampColor(Math.floor(baseColor.g + noise.g * variance.g + shift));
     const b = clampColor(Math.floor(baseColor.b + noise.b * variance.b + shift));
-    return Color({
+    return {
         r,
         g,
         b,
         alpha: baseColor.alpha === undefined ? 1 : baseColor.alpha,
-    });
+    };
 };
 
 const colorizeCellTwoPointOh = ({
@@ -145,7 +145,7 @@ const colorizeCellTwoPointOh = ({
     noiseMaps: NoiseMaps;
     row: number;
     col: number;
-}) => {
+}): CellColor => {
     let cellType = cell.constant;
     if (cell.constant in noiseMaps) {
         const fgComponentNoiseMaps = noiseMaps[cellType].fg;
@@ -162,24 +162,32 @@ const colorizeCellTwoPointOh = ({
             g: bgComponentNoiseMaps.g[row][col],
             b: bgComponentNoiseMaps.b[row][col],
         };
-        return {
-            type: 'rgb',
-            bg: colorizeCell({
-                baseColor: bgColorRules.baseColor,
-                noise: bgNoiseComponents,
-                variance: bgColorRules.variance,
-            }),
-            fg: colorizeCell({
-                baseColor: fgColorRules.baseColor,
-                noise: fgNoiseComponents,
-                variance: fgColorRules.variance,
-            }),
-        };
+        const bg = applyVariance({
+            baseColor: bgColorRules.baseColor,
+            noise: bgNoiseComponents,
+            variance: bgColorRules.variance,
+        });
+
+        const fg = applyVariance({
+            baseColor: fgColorRules.baseColor,
+            noise: fgNoiseComponents,
+            variance: fgColorRules.variance,
+        });
+
+        const color: CellColor = {fg, bg};
+
+        if (cell.color.dances) {
+            return {
+                fg: {...color.fg, dancing: {deviations: fgColorRules.variance, period: 10000}},
+                bg: {...color.bg, dancing: {deviations: bgColorRules.variance, period: 10000}},
+            };
+        } else {
+            return color;
+        }
     } else if (cellType in RANDOM_COLORS) {
         const rule = RANDOM_COLORS[cellType];
         return {
-            type: 'rgb',
-            bg: colorizeCell({
+            bg: applyVariance({
                 baseColor: rule.bg.baseColor,
                 noise: {
                     r: randomRange(0, rule.bg.noise.r),
@@ -188,7 +196,7 @@ const colorizeCellTwoPointOh = ({
                 },
                 variance: rule.bg.variance,
             }),
-            fg: colorizeCell({
+            fg: applyVariance({
                 baseColor: rule.fg.baseColor,
                 noise: {
                     r: randomRange(0, rule.fg.noise.r),
@@ -199,15 +207,10 @@ const colorizeCellTwoPointOh = ({
             }),
         };
     } else {
-        try {
-            return {
-                type: 'hex',
-                fg: Color(cell.color.fg),
-                bg: Color(cell.color.bg),
-            };
-        } catch (e) {
-            debugger;
-        }
+        return {
+            fg: Color(cell.color.fg).object() as RGBColor,
+            bg: Color(cell.color.bg).object() as RGBColor,
+        };
     }
 };
 
@@ -249,7 +252,7 @@ const makeNoiseMaps = (): NoiseMaps => {
 };
 
 // returns cells with a bgColor and a fgColor
-const colorizeDungeon = (dungeon: DungeonGrid<AnnotatedCell>) => {
+const colorizeDungeon = (dungeon: Grid<AnnotatedCell>) => {
     const noiseMaps = makeNoiseMaps();
 
     const colorMap = dungeon.map((row, rowIndex) => {

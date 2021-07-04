@@ -1,4 +1,4 @@
-import {Dungeon, DungeonCell} from './types';
+import {Dungeon, DungeonCell, Grid} from './types';
 import {WIDTH, HEIGHT} from './constants';
 
 export const clamp = (x: number, min: number, max: number) => {
@@ -13,7 +13,7 @@ export const boundY = (value: number) => {
     return clamp(value, 0, HEIGHT);
 };
 
-export const gridFromDimensions = (height: number, width: number, value: DungeonCell) => {
+export const gridFromDimensions = <T>(height: number, width: number, value: T): Grid<T> => {
     return new Array(height).fill(value).map(row => {
         return new Array(width).fill(value);
     });

@@ -7,9 +7,12 @@ import {
     DoorSite,
     DoorSites,
     DungeonCell,
-    DungeonGrid,
+    Grid,
     FeatureType,
     RoomType,
+    RGBColor,
+    CellColor,
+    CellColorLayer,
 } from './types';
 
 import {
@@ -37,7 +40,7 @@ import {
 import {colorizeDungeon, colorizeCell, makeNoiseMaps} from './color';
 
 import {lightDungeon} from './light';
-import type * as Color from 'color';
+import * as Color from 'color';
 
 import {
     coordinatesAreInMap,
@@ -49,11 +52,12 @@ import {
     randomRangeInclusive,
 } from './utils';
 import Dungeon from 'rot-js/lib/map/dungeon';
+import {TYPE_FG} from 'rot-js/lib/text';
 
 const pathDistance = require('./dijkstra').pathDistance;
 const propagateShortcut = require('./dijkstra').propagateShortcut;
 
-require('seedrandom')('demo', {global: true});
+require('seedrandom')('aaaa', {global: true});
 
 const randColorFrom = (baseColor: ColorString, range: number) => {
     const f = parseInt(baseColor.slice(1), 16);
@@ -104,12 +108,12 @@ const shuffleList = <T extends any>(l: Array<T>): Array<T> => {
 };
 
 const drawContinuousShapeOnGrid = <T extends DungeonCell>(
-    room: DungeonGrid<T>,
+    room: Grid<T>,
     topOffset: number,
     leftOffset: number,
-    grid: DungeonGrid<T>,
+    grid: Grid<T>,
     map?: (a: T) => T
-): DungeonGrid<T> => {
+): Grid<T> => {
     let copiedGrid = grid.map((row: any[]) => {
         return row.map((cell: any) => {
             if (typeof cell === 'object') {
@@ -133,7 +137,7 @@ const drawContinuousShapeOnGrid = <T extends DungeonCell>(
     return copiedGrid;
 };
 
-const drawDoorCoordinatesOnGrid = (doorSites: DoorSites, grid: DungeonGrid<number>) => {
+const drawDoorCoordinatesOnGrid = (doorSites: DoorSites, grid: Grid<number>) => {
     doorSites.forEach((coordinate: DoorSite) => {
         if (coordinate) {
             grid[coordinate.y][coordinate.x] = 3 + coordinate.direction;
@@ -142,7 +146,7 @@ const drawDoorCoordinatesOnGrid = (doorSites: DoorSites, grid: DungeonGrid<numbe
     return grid;
 };
 
-const makeSymmetricalCrossRoom = (): DungeonGrid<0 | 1> => {
+const makeSymmetricalCrossRoom = (): Grid<0 | 1> => {
     const majorWidth = randomRange(4, 9);
     const majorHeight = randomRange(4, 6);
     let minorWidth = randomRange(4, 6);
@@ -155,7 +159,7 @@ const makeSymmetricalCrossRoom = (): DungeonGrid<0 | 1> => {
         minorHeight -= 1;
     }
 
-    let hyperspace = gridFromDimensions(majorHeight, majorWidth, 0);
+    let hyperspace: Grid<0 | 1> = gridFromDimensions(majorHeight, majorWidth, 0);
     for (let row = 0; row < majorHeight; row++) {
         for (let col = 0; col < majorWidth; col++) {
             if (
@@ -172,7 +176,7 @@ const makeSymmetricalCrossRoom = (): DungeonGrid<0 | 1> => {
     return hyperspace;
 };
 
-const makeCircularRoom = (): DungeonGrid<0 | 1> => {
+const makeCircularRoom = (): Grid<0 | 1> => {
     let radius: number;
     radius = randomRange(2, 6);
     const grid = gridFromDimensions(radius ** 2, radius ** 2, 0);
@@ -197,7 +201,7 @@ const makeRectangularRoom = () => {
     return gridFromDimensions(roomHeight, roomWidth, CELL_TYPES.FLOOR);
 };
 
-const fillBlob = (hyperspace: DungeonGrid, row: number, col: number, fillValue: number) => {
+const fillBlob = (hyperspace: Grid, row: number, col: number, fillValue: number) => {
     if (hyperspace[row][col] === 1) {
         hyperspace[row][col] = fillValue;
     } else {
@@ -218,13 +222,7 @@ const fillBlob = (hyperspace: DungeonGrid, row: number, col: number, fillValue: 
     return blobSize;
 };
 
-const runCAGeneration = ({
-    cells,
-    rules,
-}: {
-    cells: DungeonGrid<0 | 1>;
-    rules: CellularAutomataRules;
-}) => {
+const runCAGeneration = ({cells, rules}: {cells: Grid<0 | 1>; rules: CellularAutomataRules}) => {
     const height = cells.length;
     const width = cells[0].length;
     const getCellNeighbors = (row: number, col: number) => {
@@ -268,15 +266,15 @@ const runCAGeneration = ({
     });
 };
 
-const findLargestBlob = <T extends DungeonCell>({
+const findLargestBlob = <T extends number>({
     cells,
     height,
     width,
 }: {
-    cells: DungeonGrid<T>;
+    cells: Grid<T>;
     height: number;
     width: number;
-}): {blob: DungeonGrid<T>; minX: number; minY: number; maxX: number; maxY: number} => {
+}): {blob: Grid<T>; minX: number; minY: number; maxX: number; maxY: number} => {
     let topBlobSize = 0;
     let topBlobNumber = 2;
     let blobNumber = 2;
@@ -327,6 +325,8 @@ const findLargestBlob = <T extends DungeonCell>({
             }
         }
     }
+    // todo
+    // @ts-ignore
     return {blob: paintedRoom, minX, minY, maxX, maxY};
 };
 
@@ -342,8 +342,8 @@ const runCA = ({
     rules: CellularAutomataRules;
     nIterations: number;
     startingPercent?: number;
-}): {blob: DungeonGrid<0 | 1>; minX: number; minY: number; maxX: number; maxY: number} => {
-    let cells: DungeonGrid<0 | 1> = new Array(height).fill(0).map(row => {
+}): {blob: Grid<0 | 1>; minX: number; minY: number; maxX: number; maxY: number} => {
+    let cells: Grid<0 | 1> = new Array(height).fill(0).map(row => {
         return new Array(width).fill(0);
     });
     // fill the cells with random initial values
@@ -369,7 +369,7 @@ const runCA = ({
     return {blob, minX, minY, maxX, maxY};
 };
 
-const makeCARoom = (): DungeonGrid<0 | 1> => {
+const makeCARoom = (): Grid<0 | 1> => {
     const width = randomRange(5, 12);
     const height = randomRange(5, 12);
 
@@ -383,8 +383,8 @@ const makeCARoom = (): DungeonGrid<0 | 1> => {
 };
 
 const roomFitsAt = (
-    dungeon: DungeonGrid<CellConstant>,
-    hyperspace: DungeonGrid<CellConstant>,
+    dungeon: Grid<CellConstant>,
+    hyperspace: Grid<CellConstant>,
     topOffset: number,
     leftOffset: number
 ) => {
@@ -439,7 +439,7 @@ const directionOfDoorSite = (grid: any[][], row: number, col: number) => {
 };
 
 const chooseRandomDoorSites = (
-    room: DungeonGrid<0 | 1>,
+    room: Grid<0 | 1>,
     topOffset: number,
     leftOffset: number
 ): DoorSites => {
@@ -497,11 +497,11 @@ const chooseRandomDoorSites = (
 };
 
 const attachHallwayTo = (
-    room: DungeonGrid<0 | 1>,
+    room: Grid<number>,
     doorSites: DoorSites,
-    hyperspace: DungeonGrid<0 | 1>
+    hyperspace: Grid<number>
 ): {
-    hyperspace: DungeonGrid<0 | 1>;
+    hyperspace: Grid<number>;
     doorSites: DoorSites;
 } => {
     const hallwayDirections = shuffleList(
@@ -561,8 +561,8 @@ const attachHallwayTo = (
     return {hyperspace, doorSites};
 };
 
-const designRoomInHyperspace = (): {hyperspace: DungeonGrid<0 | 1>; doorSites: DoorSites} => {
-    let hyperspace = gridFromDimensions(HEIGHT, WIDTH, CELL_TYPES.ROCK);
+const designRoomInHyperspace = (): {hyperspace: Grid<number>; doorSites: DoorSites} => {
+    let hyperspace: Grid<number> = gridFromDimensions(HEIGHT, WIDTH, 0);
     const roomType = randomRangeInclusive(0, 2) as RoomType;
     let room;
     switch (roomType) {
@@ -638,8 +638,8 @@ const oppositeDirection = (direction: number) => {
 };
 
 const transferRoomToDungeon = (
-    dungeon: DungeonGrid<CellConstant>,
-    hyperspace: DungeonGrid<CellConstant>,
+    dungeon: Grid<CellConstant>,
+    hyperspace: Grid<CellConstant>,
     topOffset: number,
     leftOffset: number
 ) => {
@@ -654,8 +654,8 @@ const transferRoomToDungeon = (
 };
 
 const insertRoomAt = (
-    dungeon: DungeonGrid<CellConstant>,
-    hyperspace: DungeonGrid<CellConstant>,
+    dungeon: Grid<CellConstant>,
+    hyperspace: Grid<CellConstant>,
     topOffset: any,
     leftOffset: any,
     yRoom: number,
@@ -689,8 +689,8 @@ const insertRoomAt = (
 };
 
 const placeRoomInDungeon = (
-    hyperspace: DungeonGrid<CellConstant>,
-    dungeon: DungeonGrid<CellConstant>,
+    hyperspace: Grid<CellConstant>,
+    dungeon: Grid<CellConstant>,
     doorSites: DoorSites
 ) => {
     // "slide hyperspace across real space, in a random but predetermined order, until
@@ -727,7 +727,7 @@ const placeRoomInDungeon = (
     return dungeon;
 };
 
-const annotateCells = (dungeon: DungeonGrid<CellConstant>): DungeonGrid<AnnotatedCell> => {
+const annotateCells = (dungeon: Grid<CellConstant>): Grid<AnnotatedCell> => {
     // map to cells for rendering
     return dungeon.map((row: Array<CellConstant>, rowIndex: number) => {
         return row.map((celltype: CellConstant, colIndex: number) => {
@@ -748,7 +748,7 @@ const floodFill = ({
     impassible,
     fillValue,
 }: {
-    dungeon: DungeonGrid<CellConstant>;
+    dungeon: Grid<CellConstant>;
     dry: (c: CellConstant) => boolean;
     impassible: (c: CellConstant) => boolean;
     fillValue: CellConstant;
@@ -799,8 +799,8 @@ const lakeDisruptsPassability = ({
     y,
     x,
 }: {
-    dungeon: DungeonGrid<CellConstant>;
-    lake: DungeonGrid<CellConstant>;
+    dungeon: Grid<CellConstant>;
+    lake: Grid<CellConstant>;
     y: number;
     x: number;
 }) => {
@@ -840,7 +840,7 @@ const createWreath = ({
 }: {
     wreathLiquid: CellConstant;
     wreathWidth: number;
-    dungeon: DungeonGrid<CellConstant>;
+    dungeon: Grid<CellConstant>;
     deepLiquidValue: CellConstant;
 }) => {
     let hyperspace = dungeon.map(row => {
@@ -924,7 +924,7 @@ const addLakes = (dungeon: any) => {
     return dungeon;
 };
 
-const addLoops = (dungeon: DungeonGrid<CellConstant>) => {
+const addLoops = (dungeon: Grid<CellConstant>) => {
     let randomizedCoordinates = Array.from(Array(WIDTH * HEIGHT).keys());
     randomizedCoordinates = shuffleList(randomizedCoordinates);
 
@@ -985,7 +985,7 @@ const randomMatchingLocation = ({
     dungeonTypes,
     liquidTypes,
 }: {
-    dungeon: DungeonGrid<CellConstant>;
+    dungeon: Grid<CellConstant>;
     dungeonTypes: Array<CellConstant>;
     liquidTypes: Array<CellConstant>;
 }): {row: number; col: number} | false => {
@@ -1014,8 +1014,8 @@ const fillSpawnMap = ({
     hyperspace,
     spawnMap,
 }: {
-    hyperspace: DungeonGrid<CellConstant>;
-    spawnMap: DungeonGrid<CellConstant>;
+    hyperspace: Grid<CellConstant>;
+    spawnMap: Grid<CellConstant>;
 }) => {
     let fillTile;
     for (let row = 0; row < HEIGHT; row++) {
@@ -1048,15 +1048,15 @@ const spawnMapDF = ({
 }: {
     row: number;
     col: number;
-    hyperspace: DungeonGrid<CellConstant>;
+    hyperspace: Grid<CellConstant>;
     propagationTerrains: Array<CellConstant>;
     requirePropagationTerrain: boolean;
     startProbability: number;
     probabilitySlope: number;
-    spawnMap: DungeonGrid<CellConstant>;
+    spawnMap: Grid<CellConstant>;
     tile: CellConstant;
     propagate: boolean;
-}): {spawnMap: DungeonGrid<CellConstant>; successful: boolean} => {
+}): {spawnMap: Grid<CellConstant>; successful: boolean} => {
     let madeChange = true;
     let t = 1;
     let probability = startProbability;
@@ -1120,9 +1120,9 @@ const spawnDungeonFeature = ({
 }: {
     row: number;
     col: number;
-    hyperspace: DungeonGrid<CellConstant>;
+    hyperspace: Grid<CellConstant>;
     feature: FeatureType;
-}) => {
+}): Grid<CellConstant> => {
     let spawnMap = gridFromDimensions(HEIGHT, WIDTH, 0);
     let subsequentSpawnMap;
     let subsequentFeature;
@@ -1154,7 +1154,7 @@ const spawnDungeonFeature = ({
     return spawnMap;
 };
 
-const runAutogenerators = (dungeon: DungeonGrid<CellConstant>, layer = 0) => {
+const runAutogenerators = (dungeon: Grid<CellConstant>, layer = 0) => {
     let autogenerator;
     let count;
     let depth = 0;
@@ -1199,15 +1199,15 @@ const runAutogenerators = (dungeon: DungeonGrid<CellConstant>, layer = 0) => {
     return hyperspace;
 };
 
-const cellObstructsVision = (row: number, col: number, dungeon: DungeonGrid<CellConstant>) => {
+const cellObstructsVision = (row: number, col: number, dungeon: Grid<CellConstant>) => {
     return CELLS[dungeon[row][col]].flags.OBSTRUCTS_VISION;
 };
 
-const cellObstructsPassibility = (row: number, col: number, dungeon: DungeonGrid<CellConstant>) => {
+const cellObstructsPassibility = (row: number, col: number, dungeon: Grid<CellConstant>) => {
     return CELLS[dungeon[row][col]].flags.OBSTRUCTS_PASSIBILITY;
 };
 
-const finishWalls = (dungeon: DungeonGrid<CellConstant>, diagonals: boolean) => {
+const finishWalls = (dungeon: Grid<CellConstant>, diagonals: boolean) => {
     let foundExposure = false;
     let transform;
     let x1, y1;
@@ -1258,20 +1258,39 @@ const addAtmosphericLayer = (dungeon: any) => {
     return annotateCells(atmosphericFeatures);
 };
 
+const extractRGB = ({r, g, b}: {r: number; g: number; b: number}) => ({
+    r,
+    g,
+    b,
+});
+
 const flattenLayers = (
-    layers: Array<DungeonGrid<AnnotatedCell>>
+    layers: Array<Grid<AnnotatedCell>>
 ): {
-    flattenedDungeon: DungeonGrid<AnnotatedCell>;
-    flattenedColors: Array<Array<{bg: Color; fg: Color}>>;
+    flattenedDungeon: Grid<AnnotatedCell>;
+    flattenedColors: Grid<CellColor>;
+    expandedColors: Array<Grid<CellColor>>;
 } => {
-    const flattenedDungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
-    const flattenedColors = gridFromDimensions(HEIGHT, WIDTH, CELLS[CELL_TYPES.ROCK].color);
+    const flattenedDungeon: Grid<AnnotatedCell> = gridFromDimensions(HEIGHT, WIDTH, undefined);
+    const flattenedColors: Grid<CellColor> = gridFromDimensions(HEIGHT, WIDTH, {
+        fg: {r: 0, g: 0, b: 0},
+        bg: {r: 0, g: 0, b: 0},
+    });
+    const expandedColors: Array<Array<Array<{bg: RGBColor; fg: RGBColor}>>> = [];
     let lowerCell: AnnotatedCell;
     let currentCell: AnnotatedCell;
-    let bg;
-    let fg;
+    let bg: CellColorLayer;
+    let fg: CellColorLayer;
+    let layerColors: Array<Array<{bg: RGBColor; fg: RGBColor}>>;
     const noiseMaps = makeNoiseMaps();
     for (let i = 0; i < layers.length; i++) {
+        if (i == 2) {
+            debugger;
+        }
+        layerColors = gridFromDimensions(HEIGHT, WIDTH, {
+            fg: {r: 0, g: 0, b: 0},
+            bg: {r: 0, g: 0, b: 0},
+        });
         for (let row = 0; row < HEIGHT; row++) {
             for (let col = 0; col < WIDTH; col++) {
                 lowerCell = flattenedDungeon[row][col];
@@ -1287,22 +1306,36 @@ const flattenLayers = (
                     row,
                     col,
                 }));
+                layerColors[row][col] = {bg, fg};
                 if (lowerCell) {
                     if (currentCell.flags.YIELD_LETTER) {
                         flattenedDungeon[row][col].letter = lowerCell.letter;
                     }
-                    if (bg.alpha() < 1) {
-                        bg = flattenedColors[row][col].bg.mix(bg, bg.alpha());
+                    if (bg.alpha < 1) {
+                        bg = {
+                            ...bg,
+                            ...(Color(extractRGB(flattenedColors[row][col].bg))
+                                .mix(Color(extractRGB(bg)), bg.alpha)
+                                .object() as RGBColor),
+                            alpha: 1,
+                        };
                     }
-                    if (fg.alpha() < 1) {
-                        fg = flattenedColors[row][col].fg.mix(fg, fg.alpha());
+                    if (fg.alpha < 1) {
+                        fg = {
+                            ...fg,
+                            ...(Color(extractRGB(flattenedColors[row][col].fg))
+                                .mix(Color(extractRGB(fg)), fg.alpha)
+                                .object() as RGBColor),
+                            alpha: 1,
+                        };
                     }
                 }
                 flattenedColors[row][col] = {bg, fg};
             }
         }
+        expandedColors.push(layerColors);
     }
-    return {flattenedDungeon, flattenedColors};
+    return {flattenedDungeon, flattenedColors, expandedColors};
 };
 
 const accreteRoom = (dungeon: any) => {
@@ -1311,7 +1344,7 @@ const accreteRoom = (dungeon: any) => {
     return dungeon;
 };
 
-const accreteRooms = (nRooms: number, dungeon?: DungeonGrid<CellConstant>) => {
+const accreteRooms = (nRooms: number, dungeon?: Grid<CellConstant>) => {
     if (dungeon === undefined) {
         dungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
     }
@@ -1330,18 +1363,21 @@ const accreteRooms = (nRooms: number, dungeon?: DungeonGrid<CellConstant>) => {
 
     const layers = [annotateCells(dungeon), annotateCells(features), addAtmosphericLayer(dungeon)];
 
-    const {flattenedDungeon, flattenedColors} = flattenLayers(layers);
+    const {flattenedDungeon, flattenedColors, expandedColors} = flattenLayers(layers);
 
-    const lightedColors = lightDungeon({
+    const {mixedColors, lightColors} = lightDungeon({
         dungeon: flattenedDungeon,
         colors: flattenedColors,
+        mutate: false,
     });
 
+    debugger;
     return {
         baseDungeon: dungeon,
         dungeon: flattenedDungeon,
         colorizedDungeon: flattenedColors,
         dungeonRaw: dungeon,
+        lightColors,
     };
 };
 

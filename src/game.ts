@@ -13,6 +13,10 @@ import {makeDungeon} from './level-generation/generator';
 import {makeNoiseMaps} from './level-generation/color';
 import {HEIGHT, WIDTH} from './level-generation/constants';
 import Uniform from 'rot-js/lib/map/uniform';
+import ColorLayers from './components/colorlayers';
+import DancingColor from './components/dancingcolor';
+import Light from './components/light';
+import {Grid, RGBColor} from './level-generation/types';
 
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
@@ -33,6 +37,7 @@ export default class Game {
     tickTime: number;
     playerQuery: Query;
     map: Uniform;
+    lightColors: Grid<RGBColor>;
 
     constructor(container: HTMLElement, logdiv: HTMLElement, tileSet: HTMLImageElement) {
         this.display = new ROT.Display(options);
@@ -46,6 +51,11 @@ export default class Game {
         this.world.registerComponent(Position);
         this.world.registerComponent(ActionMove);
         this.world.registerComponent(Renderable);
+        this.world.registerComponent(ColorLayers);
+        this.world.registerComponent(DancingColor);
+        this.world.registerComponent(Light);
+
+        this.world.registerTags('Character', 'PlayerControlled', 'Tile');
 
         this.makeMap();
         this.mapEntity = this.world.createEntity({
@@ -56,8 +66,7 @@ export default class Game {
                 map: this.map,
             },
         });
-        this.world.registerTags('Character', 'PlayerControlled');
-        this.world.registerSystem('everyframe', ActionSystem);
+        this.world.registerSystem('everyframe', ActionSystem, [this.lightColors]);
         this.world.registerSystem('render', RenderSystem, [this.display]);
         const player = this.world.createEntity({
             tags: ['Character', 'PlayerControlled'],
@@ -68,7 +77,8 @@ export default class Game {
                 },
                 Renderable: {
                     char: '@',
-                    bg: 'rgba(0,0,0,0)',
+                    baseBG: {r: 0, g: 0, b: 0, alpha: 0},
+                    baseFG: {r: 150, g: 150, b: 150, alpha: 1},
                 },
             },
         });
@@ -80,27 +90,34 @@ export default class Game {
                 switch (e.code) {
                     case 'ArrowUp':
                         player.addComponent({
-                            type: 'ActionMove',
+                            type: ActionMove,
                             y: -1,
+                            x: 0,
                         });
                         break;
                     case 'ArrowDown':
                         player.addComponent({
-                            type: 'ActionMove',
+                            type: ActionMove,
                             y: 1,
+                            x: 0,
                         });
                         break;
                     case 'ArrowLeft':
                         player.addComponent({
-                            type: 'ActionMove',
+                            type: ActionMove,
                             x: -1,
+                            y: 0,
                         });
                         break;
                     case 'ArrowRight':
                         player.addComponent({
-                            type: 'ActionMove',
+                            type: ActionMove,
                             x: 1,
+                            y: 0,
                         });
+                        break;
+                    default:
+                        console.log(e.code);
                         break;
                 }
             }
@@ -119,9 +136,14 @@ export default class Game {
 
     makeMap() {
         this.map = new Uniform(WIDTH, HEIGHT, {});
-        const {dungeon, colorizedDungeon} = makeDungeon(WIDTH, HEIGHT);
+        const {dungeon, colorizedDungeon, lightColors} = makeDungeon(WIDTH, HEIGHT);
+        this.lightColors = lightColors;
         this.map.create((col, row, contents) => {
+            if (row == 4 && col == 10) {
+                debugger;
+            }
             const tile = this.world.createEntity({
+                tags: ['Tile'],
                 c: {
                     Position: {
                         x: col,
@@ -129,10 +151,27 @@ export default class Game {
                     },
                     Renderable: {
                         char: dungeon[row][col].letter,
-                        ...colorizedDungeon[row][col],
+                        fg: colorizedDungeon[row][col].fg,
+                        bg: colorizedDungeon[row][col].bg,
+                        baseFG: colorizedDungeon[row][col].fg,
+                        baseBG: colorizedDungeon[row][col].bg,
                     },
                 },
             });
+            if (lightColors[row][col]) {
+                tile.addComponent({
+                    type: Light,
+                    ...lightColors[row][col],
+                });
+            }
+            if (colorizedDungeon[row][col].fg.dancing) {
+                tile.addComponent({
+                    type: DancingColor,
+                    period: colorizedDungeon[row][col].fg.dancing.period,
+                    deviations: colorizedDungeon[row][col].fg.dancing.deviations,
+                    timer: Math.random() * colorizedDungeon[row][col].fg.dancing.period,
+                });
+            }
         });
     }
 }

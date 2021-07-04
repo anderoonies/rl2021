@@ -8,7 +8,7 @@
 import {DIR_TO_TRANSFORM, CELL_TYPES} from './constants';
 import {annotateCells} from './generator';
 import {coordinatesAreInMap} from './utils';
-import {DungeonGrid, AnnotatedCell} from './types';
+import {Grid, AnnotatedCell} from './types';
 
 type DNode = {
     x: number;
@@ -25,7 +25,7 @@ const dungeonToNodeMap = ({
     dungeon,
     inaccessible,
 }: {
-    dungeon: DungeonGrid<AnnotatedCell>;
+    dungeon: Grid<AnnotatedCell>;
     inaccessible: (a: AnnotatedCell) => boolean;
 }): NodeMap => {
     return dungeon.map((row, rowIndex) => {
@@ -79,7 +79,7 @@ export const pathDistance = ({
 }: {
     start: DNode;
     end: DNode;
-    dungeon: DungeonGrid<AnnotatedCell>;
+    dungeon: Grid<AnnotatedCell>;
     inaccessible: (a: AnnotatedCell) => boolean;
 }) => {
     // 1. mark all nodes as visited, create a set of unvisited nodes

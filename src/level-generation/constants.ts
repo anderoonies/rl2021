@@ -1,4 +1,10 @@
-import {CellConstant} from './types';
+import {
+    CellColor,
+    CellConstant,
+    CellType,
+    PerlinColorDefinition,
+    RandomColorDefiniton,
+} from './types';
 
 // global
 export const CELL_WIDTH = 1;
@@ -17,7 +23,7 @@ export const DEBUG_FLAGS = {
     ROOMS_ONLY: false,
     SHOW_ACCRETION: false,
     SHOW_CA: false,
-};
+} as const;
 
 export const WIDTH = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 80;
 export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 32;
@@ -36,7 +42,7 @@ export const ROOM_TYPES = {
     CA: 0,
     CIRCLE: 1,
     SYMMETRICAL_CROSS: 2,
-};
+} as const;
 
 export const CELL_TYPES = {
     DEBUG: -10,
@@ -150,8 +156,8 @@ export const COLORS = {
     ROCK: {bg: 'black', fg: 'black'},
     // todo
     GRANITE: {bg: 'black', fg: 'black'},
-    LAKE: {bg: '#5e5eca', fg: 'black'},
-    SHALLOW_WATER: {bg: '#70a0ed', fg: 'black'},
+    LAKE: {bg: '#5e5eca', fg: 'black', dances: true},
+    SHALLOW_WATER: {bg: '#70a0ed', fg: 'black', dances: true},
     GRASS: {bg: '#23232b', fg: '#8bc34a'},
     DEAD_GRASS: {bg: '#23232b', fg: '#8c542b'},
     DEAD_FOLIAGE: {bg: '#23232b', fg: '#8c542b'},
@@ -161,14 +167,17 @@ export const COLORS = {
     HAZE: {bg: 'pink', fg: 'pink', opacity: 0.4},
     // todo
     LUMINESCENT_FUNGUS: {bg: 'green', fg: 'yellow'},
-    EMPTY: {bg: '', fg: ''},
+    EMPTY: {bg: 'rgba(0,0,0,0)', fg: 'rgba(0,0,0,0)'},
 };
 
 // cell types
-export const CELLS = {
+export const CELLS: Record<CellConstant, CellType> = {
     [CELL_TYPES.DEBUG]: {
         type: 'debug',
         letter: ',',
+        color: COLORS.EMPTY,
+        priority: -1,
+        flags: {},
     },
     [CELL_TYPES.EMPTY]: {
         type: 'EMPTY',
@@ -221,21 +230,29 @@ export const CELLS = {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '^',
+        priority: 0,
+        flags: {},
     },
     [CELL_TYPES.EXIT_EAST]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '>',
+        priority: 0,
+        flags: {},
     },
     [CELL_TYPES.EXIT_SOUTH]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: 'V',
+        priority: 0,
+        flags: {},
     },
     [CELL_TYPES.EXIT_WEST]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '<',
+        priority: 0,
+        flags: {},
     },
     [CELL_TYPES.LAKE]: {
         type: 'LAKE',
@@ -282,6 +299,7 @@ export const CELLS = {
         type: 'GRANITE',
         color: COLORS.GRANITE,
         letter: 'g',
+        priority: 10,
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: true,
@@ -291,6 +309,8 @@ export const CELLS = {
         type: 'luminescent_fungus',
         color: COLORS.LUMINESCENT_FUNGUS,
         letter: 'f',
+        priority: 0,
+        flags: {},
     },
     [CELL_TYPES.GRASS]: {
         type: 'GRASS',
@@ -386,8 +406,8 @@ export const CELLS = {
     [CELL_TYPES.LIGHT_POOL]: {
         type: 'LIGHT_POOL',
         // TODO--this is unused, this is a randomized color
-        color: COLORS.SHALLOW_WATER,
-        letter: ' ',
+        color: COLORS.EMPTY,
+        letter: 'x',
         priority: 0,
         flags: {
             YIELD_LETTER: true,
@@ -772,7 +792,7 @@ export const AUTO_GENERATOR_CATALOG = [
     // ]
 ];
 
-export const RANDOM_COLORS = {
+export const RANDOM_COLORS: Record<CellConstant, RandomColorDefiniton> = {
     [CELL_TYPES.TORCH_WALL]: {
         bg: {
             baseColor: {
@@ -814,7 +834,7 @@ export const RANDOM_COLORS = {
         },
     },
 };
-export const PERLIN_COLORS = {
+export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
     [CELL_TYPES.FLOOR]: {
         bg: {
             baseColor: {
@@ -872,7 +892,6 @@ export const PERLIN_COLORS = {
         },
     },
     [CELL_TYPES.LAKE]: {
-        // 5,	10,		31,		5,		5,			5,			6
         bg: {
             baseColor: {
                 r: 40,
@@ -901,7 +920,6 @@ export const PERLIN_COLORS = {
         },
     },
     [CELL_TYPES.SHALLOW_WATER]: {
-        // 20,20,		60,		0,		0,			10,			10,
         bg: {
             baseColor: {
                 r: 80,
@@ -930,7 +948,6 @@ export const PERLIN_COLORS = {
         },
     },
     [CELL_TYPES.GRASS]: {
-        // 15,	40,		15,		15,		50,			15,			10
         fg: {
             baseColor: {
                 r: 15,
@@ -959,7 +976,6 @@ export const PERLIN_COLORS = {
         },
     },
     [CELL_TYPES.FOLIAGE]: {
-        // 15,	40,		15,		15,		50,			15,			10
         fg: {
             baseColor: {
                 r: 15,
@@ -988,7 +1004,6 @@ export const PERLIN_COLORS = {
         },
     },
     [CELL_TYPES.DEAD_GRASS]: {
-        // 20,	13,		0,		20,		10,			5,			10
         fg: {
             baseColor: {
                 r: 51,
@@ -1017,7 +1032,6 @@ export const PERLIN_COLORS = {
         },
     },
     [CELL_TYPES.DEAD_FOLIAGE]: {
-        // 20,	13,		0,		20,		10,			5,			10
         fg: {
             baseColor: {
                 r: 51,
@@ -1045,36 +1059,36 @@ export const PERLIN_COLORS = {
             },
         },
     },
-    [CELL_TYPES.LIGHT_POOL]: {
-        fg: {
-            baseColor: {
-                r: 0,
-                g: 0,
-                b: 0,
-                alpha: 0,
-            },
-            variance: {
-                r: 0,
-                g: 0,
-                b: 0,
-                overall: 0,
-            },
-        },
-        bg: {
-            baseColor: {
-                r: 220,
-                g: 220,
-                b: 220,
-                alpha: 0.2,
-            },
-            variance: {
-                r: 0,
-                g: 0,
-                b: 0,
-                overall: 30,
-            },
-        },
-    },
-};
+    // [CELL_TYPES.LIGHT_POOL]: {
+    //     fg: {
+    //         baseColor: {
+    //             r: 255,
+    //             g: 0,
+    //             b: 0,
+    //             alpha: 0,
+    //         },
+    //         variance: {
+    //             r: 0,
+    //             g: 0,
+    //             b: 0,
+    //             overall: 0,
+    //         },
+    //     },
+    //     bg: {
+    //         baseColor: {
+    //             r: 220,
+    //             g: 220,
+    //             b: 220,
+    //             alpha: 0.10,
+    //         },
+    //         variance: {
+    //             r: 0,
+    //             g: 0,
+    //             b: 0,
+    //             overall: 30,
+    //         },
+    //     },
+    // },
+} as const;
 
 export const PERLIN_PERIOD = 4;

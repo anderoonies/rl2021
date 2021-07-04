@@ -1,8 +1,5 @@
 import {Query, System} from 'ape-ecs';
-import ActionMove from '../components/actionmove';
-import ColorLayers from '../components/colorlayers';
-import Light from '../components/light';
-import Position from '../components/position';
+import {ActionMove, Light, Position} from '../components';
 import {Grid, LightSource, RGBColor} from '../level-generation/types';
 
 class ActionSystem extends System {

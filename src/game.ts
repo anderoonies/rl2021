@@ -2,9 +2,7 @@ import * as ROT from 'rot-js';
 import {DisplayOptions} from 'rot-js/lib/display/types';
 import {Entity, Query, World} from 'ape-ecs';
 
-import ActionMove from './components/actionmove';
-import Position from './components/position';
-import Renderable from './components/renderable';
+import {ActionMove, Position, Renderable, DancingColor, Light} from './components';
 
 import ActionSystem from './systems/action';
 import RenderSystem from './systems/render';
@@ -13,9 +11,6 @@ import {makeDungeon} from './level-generation/generator';
 import {makeNoiseMaps} from './level-generation/color';
 import {HEIGHT, WIDTH} from './level-generation/constants';
 import Uniform from 'rot-js/lib/map/uniform';
-import ColorLayers from './components/colorlayers';
-import DancingColor from './components/dancingcolor';
-import Light from './components/light';
 import {Grid, RGBColor} from './level-generation/types';
 
 const options: Partial<DisplayOptions> = {
@@ -51,19 +46,18 @@ export default class Game {
         this.world.registerComponent(Position);
         this.world.registerComponent(ActionMove);
         this.world.registerComponent(Renderable);
-        this.world.registerComponent(ColorLayers);
         this.world.registerComponent(DancingColor);
         this.world.registerComponent(Light);
 
         this.world.registerTags('Character', 'PlayerControlled', 'Tile');
 
-        this.makeMap();
+        const tiles = this.makeMap();
         this.mapEntity = this.world.createEntity({
             id: 'map',
             Map: {
                 width: WIDTH,
                 height: HEIGHT,
-                map: this.map,
+                tiles: tiles,
             },
         });
         this.world.registerSystem('everyframe', ActionSystem, [this.lightColors]);
@@ -136,12 +130,10 @@ export default class Game {
 
     makeMap() {
         this.map = new Uniform(WIDTH, HEIGHT, {});
+        const tiles = new Array(HEIGHT).fill(undefined).map(() => new Array(WIDTH).fill(undefined));
         const {dungeon, colorizedDungeon, lightColors} = makeDungeon(WIDTH, HEIGHT);
         this.lightColors = lightColors;
         this.map.create((col, row, contents) => {
-            if (row == 4 && col == 10) {
-                debugger;
-            }
             const tile = this.world.createEntity({
                 tags: ['Tile'],
                 c: {
@@ -172,6 +164,8 @@ export default class Game {
                     timer: Math.random() * colorizedDungeon[row][col].fg.dancing.period,
                 });
             }
+            tiles[row][col] = tile;
         });
+        return tiles;
     }
 }

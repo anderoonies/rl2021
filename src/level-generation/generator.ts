@@ -1284,9 +1284,6 @@ const flattenLayers = (
     let layerColors: Array<Array<{bg: RGBColor; fg: RGBColor}>>;
     const noiseMaps = makeNoiseMaps();
     for (let i = 0; i < layers.length; i++) {
-        if (i == 2) {
-            debugger;
-        }
         layerColors = gridFromDimensions(HEIGHT, WIDTH, {
             fg: {r: 0, g: 0, b: 0},
             bg: {r: 0, g: 0, b: 0},
@@ -1371,7 +1368,6 @@ const accreteRooms = (nRooms: number, dungeon?: Grid<CellConstant>) => {
         mutate: false,
     });
 
-    debugger;
     return {
         baseDungeon: dungeon,
         dungeon: flattenedDungeon,

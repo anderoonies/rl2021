@@ -2,7 +2,7 @@ import Dungeon from 'rot-js/lib/map/dungeon';
 import {CELL_WIDTH} from './constants';
 
 import {BRIGHT_THRESHOLD, DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX} from './constants';
-import {AnnotatedCell, CellColor, Grid, LightSource, RGBColor} from './types';
+import {AnnotatedCell, CellColor, CellColorLayer, Grid, LightSource, RGBColor} from './types';
 import * as Color from 'color';
 import {rgb} from 'color-convert/route';
 
@@ -189,7 +189,7 @@ const paintLight = ({
     row: number;
     col: number;
     dungeon: Grid<AnnotatedCell>;
-    lightMap: Array<Array<{r: number; g: number; b: number}>>;
+    lightMap: Grid<CellColorLayer | undefined>;
 }) => {
     const radius = Math.floor(randomRange(lightSource.minRadius, lightSource.maxRadius) / 100);
     let lightHyperspace = gridFromDimensions(HEIGHT, WIDTH, undefined);
@@ -250,6 +250,12 @@ const paintLight = ({
     lightMap[row][col].r += colorComponents.r;
     lightMap[row][col].g += colorComponents.g;
     lightMap[row][col].b += colorComponents.b;
+    lightMap[row][col].dancing = {
+        period: 20000,
+        deviations: {
+            ...lightSource.color.variance,
+        },
+    };
 
     return lightMap;
 };
@@ -264,7 +270,7 @@ export const lightDungeon = ({
     mutate: boolean;
 }): {
     mixedColors: Grid<{fg: RGBColor; bg: RGBColor}>;
-    lightColors: Grid<RGBColor | undefined>;
+    lightColors: Grid<CellColorLayer | undefined>;
 } => {
     let lightMap = gridFromDimensions(HEIGHT, WIDTH, undefined);
     let lightColors: Grid<RGBColor | undefined> = gridFromDimensions(

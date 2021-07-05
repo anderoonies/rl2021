@@ -86,8 +86,6 @@ export const IMPASSIBLE_TYPES = [
     CELL_TYPES.ROCK,
     CELL_TYPES.WALL,
     CELL_TYPES.LAKE,
-    CELL_TYPES.FOLIAGE,
-    CELL_TYPES.DEAD_FOLIAGE,
 ];
 
 export const IMPASSIBLE = (cell: CellConstant) => {
@@ -348,7 +346,7 @@ export const CELLS: Record<CellConstant, CellType> = {
         letter: String.fromCharCode(0x03b3),
         priority: 10,
         flags: {
-            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_PASSIBILITY: false,
             OBSTRUCTS_VISION: false,
         },
     },
@@ -375,9 +373,9 @@ export const CELLS: Record<CellConstant, CellType> = {
             color: {
                 baseColor: {
                     // {75,	38, 15, 0, 15, 	7, 	0, true}
-                    r: 75,
-                    g: 38,
-                    b: 15,
+                    r: 10,
+                    g: 5,
+                    b: 1,
                 },
                 variance: {
                     r: 0,

@@ -1,17 +1,27 @@
 import * as ROT from 'rot-js';
 import {DisplayOptions} from 'rot-js/lib/display/types';
-import {Entity, Query, World} from 'ape-ecs';
+import {Entity, IComponentConfigValObject, Query, World} from 'ape-ecs';
 
-import {ActionMove, Position, Renderable, DancingColor, Light} from './components';
+import {
+    ActionMove,
+    Position,
+    Renderable,
+    DancingColor,
+    Light,
+    Tile,
+    Map,
+    Character,
+    PlayerControlled,
+} from './components';
 
 import ActionSystem from './systems/action';
 import RenderSystem from './systems/render';
 
 import {makeDungeon} from './level-generation/generator';
-import {makeNoiseMaps} from './level-generation/color';
 import {HEIGHT, WIDTH} from './level-generation/constants';
 import Uniform from 'rot-js/lib/map/uniform';
 import {Grid, RGBColor} from './level-generation/types';
+import FOV from 'rot-js/lib/fov/fov';
 
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
@@ -32,6 +42,8 @@ export default class Game {
     tickTime: number;
     playerQuery: Query;
     map: Uniform;
+    fov: FOV;
+    lighting: ROT.Lighting;
     lightColors: Grid<RGBColor>;
 
     constructor(container: HTMLElement, logdiv: HTMLElement, tileSet: HTMLImageElement) {
@@ -48,26 +60,48 @@ export default class Game {
         this.world.registerComponent(Renderable);
         this.world.registerComponent(DancingColor);
         this.world.registerComponent(Light);
+        this.world.registerComponent(Tile);
+        this.world.registerComponent(Map);
 
-        this.world.registerTags('Character', 'PlayerControlled', 'Tile');
+        this.world.registerTags(Character.name, PlayerControlled.name);
 
         const tiles = this.makeMap();
+        const dynamicLight: Grid<RGBColor> = new Array(HEIGHT).fill(undefined).map(() => {
+            return new Array(WIDTH);
+        });
+        this.fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
+            return tiles[y][x].getOne(Tile).flags.OBSTRUCTS_VISION;
+        }, {});
+        this.lighting = new ROT.Lighting(
+            () => {
+                return 1;
+            },
+            {range: 5, passes: 1}
+        );
+        this.lighting.setFOV(this.fov);
         this.mapEntity = this.world.createEntity({
             id: 'map',
-            Map: {
-                width: WIDTH,
-                height: HEIGHT,
-                tiles: tiles,
-            },
         });
-        this.world.registerSystem('everyframe', ActionSystem, [this.lightColors]);
-        this.world.registerSystem('render', RenderSystem, [this.display]);
+        this.mapEntity.addComponent({
+            type: Map,
+            width: WIDTH,
+            height: HEIGHT,
+            tiles: tiles,
+        });
+        this.world.registerSystem('everyframe', ActionSystem, [
+            this.fov,
+            this.lighting,
+            dynamicLight,
+            tiles,
+            this.lightColors,
+        ]);
+        this.world.registerSystem('render', RenderSystem, [this.display, dynamicLight]);
         const player = this.world.createEntity({
-            tags: ['Character', 'PlayerControlled'],
+            tags: [Character.name, PlayerControlled.name],
             c: {
                 Position: {
-                    x: 10,
-                    y: 10,
+                    x: 8,
+                    y: 12,
                 },
                 Renderable: {
                     char: '@',
@@ -135,7 +169,6 @@ export default class Game {
         this.lightColors = lightColors;
         this.map.create((col, row, contents) => {
             const tile = this.world.createEntity({
-                tags: ['Tile'],
                 c: {
                     Position: {
                         x: col,
@@ -148,13 +181,31 @@ export default class Game {
                         baseFG: colorizedDungeon[row][col].fg,
                         baseBG: colorizedDungeon[row][col].bg,
                     },
+                    Tile: {
+                        flags: dungeon[row][col].flags,
+                    },
                 },
             });
             if (lightColors[row][col]) {
-                tile.addComponent({
-                    type: Light,
-                    ...lightColors[row][col],
+                const light = this.world.createEntity({
+                    c: {
+                        Light: {
+                            base: {...lightColors[row][col]},
+                            current: {...lightColors[row][col]},
+                        },
+                        Position: {
+                            x: col,
+                            y: row,
+                        },
+                    },
                 });
+                if (lightColors[row][col].dancing) {
+                    light.addComponent({
+                        type: DancingColor,
+                        ...lightColors[row][col].dancing,
+                        timer: lightColors[row][col].dancing.period,
+                    });
+                }
             }
             if (colorizedDungeon[row][col].fg.dancing) {
                 tile.addComponent({

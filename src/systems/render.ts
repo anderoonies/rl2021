@@ -27,13 +27,23 @@ class RenderSystem extends System {
     }
 
     update(dt: number) {
-        const renderableEntities = this.mainRenderQuery.execute();
+        const renderableEntities = this.mainRenderQuery.refresh().execute();
         for (const entity of renderableEntities) {
             let fg;
             let bg;
             let char;
 
-            let renderable = entity.getOne(Renderable);
+            const position = entity.getOne(Position);
+            const renderable = entity.getOne(Renderable);
+
+            if (position.y === 18 && position.x === 19) {
+                debugger;
+            }
+            if (!renderable.visible) {
+                this.display.draw(position.x, position.y, ' ', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)');
+                continue;
+            }
+
             fg = {
                 ...renderable.baseFG,
             };
@@ -68,8 +78,8 @@ class RenderSystem extends System {
                 };
                 dancingColor.update({timer: dancingColor.timer - dt / 2});
             }
-            const position = entity.getOne(Position);
             if (this.dynamicLight[position.y][position.x]) {
+                debugger;
                 const dl = this.dynamicLight[position.y][position.x];
                 fg = {
                     r: fg.r + dl.r,

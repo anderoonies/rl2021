@@ -19,6 +19,7 @@ export class Renderable extends Component({
     fg: {r: 0, g: 0, b: 0, alpha: 0},
     baseBG: {r: 0, g: 0, b: 0, alpha: 0},
     bg: {r: 0, g: 0, b: 0, alpha: 0},
+    visible: false,
 }) {}
 
 export class Tile extends Component({

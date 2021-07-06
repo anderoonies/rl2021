@@ -70,7 +70,12 @@ export default class Game {
             return new Array(WIDTH);
         });
         this.fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
-            return tiles[y][x].getOne(Tile).flags.OBSTRUCTS_VISION;
+            try {
+                return !tiles[y][x].getOne(Tile).flags.OBSTRUCTS_VISION;
+            } catch (e) {
+                debugger;
+                return false;
+            }
         }, {});
         this.lighting = new ROT.Lighting(
             () => {
@@ -107,6 +112,7 @@ export default class Game {
                     char: '@',
                     baseBG: {r: 0, g: 0, b: 0, alpha: 0},
                     baseFG: {r: 150, g: 150, b: 150, alpha: 1},
+                    visible: true,
                 },
             },
         });
@@ -180,6 +186,7 @@ export default class Game {
                         bg: colorizedDungeon[row][col].bg,
                         baseFG: colorizedDungeon[row][col].fg,
                         baseBG: colorizedDungeon[row][col].bg,
+                        visible: false,
                     },
                     Tile: {
                         flags: dungeon[row][col].flags,

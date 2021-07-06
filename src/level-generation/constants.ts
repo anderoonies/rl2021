@@ -337,7 +337,7 @@ export const CELLS: Record<CellConstant, CellType> = {
         priority: 10,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
+            OBSTRUCTS_VISION: true,
         },
     },
     [CELL_TYPES.FOLIAGE]: {
@@ -347,7 +347,7 @@ export const CELLS: Record<CellConstant, CellType> = {
         priority: 10,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
+            OBSTRUCTS_VISION: true,
         },
     },
     [CELL_TYPES.RUBBLE]: {

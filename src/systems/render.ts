@@ -1,7 +1,16 @@
 import {Color as ROTColor, Display} from 'rot-js';
-import {Query, System} from 'ape-ecs';
+import {Entity, Query, System} from 'ape-ecs';
 
-import {Position, Renderable, Light, DancingColor} from '../components';
+import {
+    Position,
+    Renderable,
+    Light,
+    DancingColor,
+    Memory,
+    Visible,
+    Character,
+    Tile,
+} from '../components';
 import {Grid, RGBColor} from '../level-generation/types';
 import {Color} from 'rot-js/lib/color';
 
@@ -35,11 +44,32 @@ class RenderSystem extends System {
 
             const position = entity.getOne(Position);
             const renderable = entity.getOne(Renderable);
+            const visible = entity.getOne(Visible);
+            const memory = entity.getOne(Memory);
+            const character = entity.getOne(Character);
 
-            if (position.y === 18 && position.x === 19) {
-                debugger;
+            if (memory) {
+                this.display.draw(
+                    position.x,
+                    position.y,
+                    renderable.char,
+                    toRGBA(
+                        ROTColor.multiply_(
+                            [renderable.fg.r, renderable.fg.g, renderable.fg.b],
+                            [100, 100, 100]
+                        )
+                    ),
+                    toRGBA(
+                        ROTColor.multiply_(
+                            [renderable.bg.r, renderable.bg.g, renderable.bg.b],
+                            [100, 100, 100]
+                        )
+                    )
+                );
+                continue;
             }
-            if (!renderable.visible) {
+
+            if (!visible && !character) {
                 this.display.draw(position.x, position.y, ' ', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)');
                 continue;
             }
@@ -79,7 +109,6 @@ class RenderSystem extends System {
                 dancingColor.update({timer: dancingColor.timer - dt / 2});
             }
             if (this.dynamicLight[position.y][position.x]) {
-                debugger;
                 const dl = this.dynamicLight[position.y][position.x];
                 fg = {
                     r: fg.r + dl.r,

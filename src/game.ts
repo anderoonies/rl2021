@@ -2,6 +2,7 @@ import * as ROT from 'rot-js';
 import {DisplayOptions} from 'rot-js/lib/display/types';
 import {Entity, IComponentConfigValObject, Query, World} from 'ape-ecs';
 
+import * as allComponents from './components';
 import {
     ActionMove,
     Position,
@@ -55,15 +56,9 @@ export default class Game {
         this.update(this.lastUpdate);
         container.appendChild(this.display.getContainer());
 
-        this.world.registerComponent(Position);
-        this.world.registerComponent(ActionMove);
-        this.world.registerComponent(Renderable);
-        this.world.registerComponent(DancingColor);
-        this.world.registerComponent(Light);
-        this.world.registerComponent(Tile);
-        this.world.registerComponent(Map);
+        this.registerComponents();
 
-        this.world.registerTags(Character.name, PlayerControlled.name);
+        // this.world.registerTags(Character.name, PlayerControlled.name);
 
         const tiles = this.makeMap();
         const dynamicLight: Grid<RGBColor> = new Array(HEIGHT).fill(undefined).map(() => {
@@ -73,7 +68,6 @@ export default class Game {
             try {
                 return !tiles[y][x].getOne(Tile).flags.OBSTRUCTS_VISION;
             } catch (e) {
-                debugger;
                 return false;
             }
         }, {});
@@ -102,8 +96,9 @@ export default class Game {
         ]);
         this.world.registerSystem('render', RenderSystem, [this.display, dynamicLight]);
         const player = this.world.createEntity({
-            tags: [Character.name, PlayerControlled.name],
             c: {
+                Character: {},
+                PlayerControlled: {},
                 Position: {
                     x: 8,
                     y: 12,
@@ -155,6 +150,12 @@ export default class Game {
                         break;
                 }
             }
+        });
+    }
+
+    registerComponents() {
+        Object.entries(allComponents).forEach(([name, component]) => {
+            this.world.registerComponent(component);
         });
     }
 

@@ -13,27 +13,26 @@ import {
 } from '../components';
 import {CellColorLayer, Grid, LightSource, RGBColor} from '../level-generation/types';
 import {cloneDeep} from 'lodash';
+import {HEIGHT, WIDTH} from '../level-generation/constants';
 
 class ActionSystem extends System {
     moveQuery: Query;
     lightColors: Grid<RGBColor>;
-    tileMap: Grid<Entity>;
+    tileMap: Grid<{tile: Entity; light: Entity}>;
     fov: FOV;
     rotLighting: Lighting;
-    dynamicLight: Grid<RGBColor>;
     lastVisible: Record<string, {visible: -1 | 0 | 1; y: number; x: number}>;
 
     init(
         fov: FOV,
         rotLighting: Lighting,
-        dynamicLight: Grid<RGBColor>,
-        tileMap: Grid<Entity>,
+        tileMap: Grid<{tile: Entity; light: Entity}>,
         lightColors: Grid<RGBColor>
     ) {
         this.lightColors = lightColors;
-        this.dynamicLight = dynamicLight;
         this.rotLighting = rotLighting;
         this.tileMap = tileMap;
+        debugger;
         this.moveQuery = this.createQuery().fromAll(ActionMove, Position);
         this.fov = fov;
 
@@ -48,8 +47,7 @@ class ActionSystem extends System {
     }
 
     canMove({x, y}: {x: number; y: number}): boolean {
-        const tile = this.tileMap[y][x].getOne(Tile);
-        return !tile.flags.OBSTRUCTS_PASSIBILITY;
+        return !this.tileMap[y]?.[x]?.tile.getOne(Tile).flags.OBSTRUCTS_PASSIBILITY;
     }
 
     update(tick: number) {
@@ -83,39 +81,39 @@ class ActionSystem extends System {
 
             if (entity.has(PlayerControlled.name)) {
                 const newVisible = cloneDeep(this.lastVisible);
-                this.fov.compute(pos.x, pos.y, Infinity, (x, y, r, visiblity) => {
-                    const renderable = this.tileMap[y][x].getOne(Renderable);
+                console.log(`move to ${pos.y},${pos.x}`);
+                this.fov.compute(pos.x, pos.y, WIDTH, (x, y, r, visiblity) => {
+                    if (y >= HEIGHT || x >= WIDTH) {
+                        return;
+                    }
                     newVisible[`${y},${x}`].visible += 1;
                 });
+                newVisible[`${pos.y},${pos.x}`].visible += 1;
                 Object.entries(this.lastVisible).forEach(([cell, {x, y, visible}]) => {
                     const newVisibility = newVisible[`${y},${x}`].visible;
                     const oldVisibility = visible;
-                    if (y === 15 && x === 20) {
-                        debugger;
-                    }
                     if (newVisibility > oldVisibility) {
                         // seeing it anew, either from memory or unseeing
                         if (newVisibility === 0) {
-                            // console.log(`welcome back! ${y},${x}`);
-                            for (const memory of this.tileMap[y][x].getComponents(Memory)) {
+                            for (const memory of this.tileMap[y][x].tile.getComponents(Memory)) {
                                 memory.destroy();
-                                this.tileMap[y][x].removeComponent(memory);
+                                this.tileMap[y][x].tile.removeComponent(memory);
                             }
                         }
-                        if (newVisibility > 0) {
-                            if (!this.tileMap[y][x].has(Visible)) {
-                                this.tileMap[y][x].addComponent({type: Visible});
-                                // this.tileMap[y][x].addComponent({type: Visible});
-                            }
+                        if (!this.tileMap[y][x].tile.has(Visible)) {
+                            this.tileMap[y][x].tile.addComponent({type: Visible});
                         }
                         this.lastVisible[`${y},${x}`].visible = 1;
                     } else if (newVisibility === oldVisibility) {
                         if (newVisibility > 0) {
                             // fading to memory
-                            if (this.tileMap[y][x].has(Visible)) {
-                                // console.log(`goodbye to ${y},${x}`);
-                                this.tileMap[y][x].addComponent({type: Memory});
-                                // this.tileMap[y][x].removeComponent(Visible.name);
+                            if (this.tileMap[y][x].tile.has(Visible)) {
+                                for (const visible of this.tileMap[y][x].tile.getComponents(
+                                    Visible
+                                )) {
+                                    this.tileMap[y][x].tile.removeComponent(visible);
+                                }
+                                this.tileMap[y][x].tile.addComponent({type: Memory});
                             }
 
                             this.lastVisible[`${y},${x}`].visible = -1;

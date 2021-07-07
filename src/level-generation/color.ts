@@ -38,11 +38,7 @@ const dotGridGradient = ({
     const dx = pointX / PERLIN_PERIOD - gradientX;
     const dy = pointY / PERLIN_PERIOD - gradientY;
     let vector;
-    try {
-        vector = gradientMap[gradientY][gradientX];
-    } catch (e) {
-        debugger;
-    }
+    vector = gradientMap[gradientY][gradientX];
     const dotProduct = dx * vector.x + dy * vector.y;
     return dotProduct;
 };

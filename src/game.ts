@@ -17,12 +17,15 @@ import {
 
 import ActionSystem from './systems/action';
 import RenderSystem from './systems/render';
+import MemoryRenderSystem from './systems/memoryrender';
+import LightSystem from './systems/light';
 
 import {makeDungeon} from './level-generation/generator';
 import {HEIGHT, WIDTH} from './level-generation/constants';
 import Uniform from 'rot-js/lib/map/uniform';
 import {Grid, RGBColor} from './level-generation/types';
 import FOV from 'rot-js/lib/fov/fov';
+import PlayerRender from './systems/playerrender';
 
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
@@ -60,24 +63,33 @@ export default class Game {
 
         // this.world.registerTags(Character.name, PlayerControlled.name);
 
-        const tiles = this.makeMap();
-        const dynamicLight: Grid<RGBColor> = new Array(HEIGHT).fill(undefined).map(() => {
-            return new Array(WIDTH);
-        });
-        this.fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
-            try {
-                return !tiles[y][x].getOne(Tile).flags.OBSTRUCTS_VISION;
-            } catch (e) {
-                return false;
-            }
-        }, {});
-        this.lighting = new ROT.Lighting(
-            () => {
-                return 1;
+        const player = this.world.createEntity({
+            c: {
+                Character: {},
+                PlayerControlled: {},
+                Position: {
+                    x: 8,
+                    y: 12,
+                },
+                Renderable: {
+                    char: '@',
+                    baseBG: {r: 0, g: 0, b: 0, alpha: 0},
+                    bg: {r: 0, g: 0, b: 0, alpha: 0},
+                    baseFG: {r: 150, g: 150, b: 150, alpha: 1},
+                    fg: {r: 150, g: 150, b: 150, alpha: 1},
+                    visible: true,
+                },
+                Visible: {},
             },
-            {range: 5, passes: 1}
-        );
-        this.lighting.setFOV(this.fov);
+        });
+        const tiles = this.makeMap();
+        this.fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
+            const playerPosition = player.getOne(Position);
+            if (x === playerPosition.x && y === playerPosition.y) {
+                return true;
+            }
+            return !tiles?.[y]?.[x]?.tile.getOne(Tile).flags.OBSTRUCTS_VISION;
+        }, {});
         this.mapEntity = this.world.createEntity({
             id: 'map',
         });
@@ -90,26 +102,17 @@ export default class Game {
         this.world.registerSystem('everyframe', ActionSystem, [
             this.fov,
             this.lighting,
-            dynamicLight,
             tiles,
             this.lightColors,
         ]);
-        this.world.registerSystem('render', RenderSystem, [this.display, dynamicLight]);
-        const player = this.world.createEntity({
-            c: {
-                Character: {},
-                PlayerControlled: {},
-                Position: {
-                    x: 8,
-                    y: 12,
-                },
-                Renderable: {
-                    char: '@',
-                    baseBG: {r: 0, g: 0, b: 0, alpha: 0},
-                    baseFG: {r: 150, g: 150, b: 150, alpha: 1},
-                    visible: true,
-                },
-            },
+        this.world.registerSystem('render', RenderSystem, [this.display]);
+        this.world.registerSystem('render', LightSystem, [this.display]);
+        this.world.registerSystem('render', MemoryRenderSystem, [this.display]);
+        this.world.registerSystem('render', PlayerRender, [this.display]);
+
+        this.fov.compute(8, 12, Infinity, (x, y, r, v) => {
+            tiles[y][x].tile.addComponent({type: allComponents.Visible});
+            tiles[y][x].light?.addComponent({type: allComponents.Visible});
         });
 
         this.playerQuery = this.world.createQuery().fromAll('PlayerControlled');
@@ -150,6 +153,7 @@ export default class Game {
                         break;
                 }
             }
+            this.world.runSystems('everyframe');
         });
     }
 
@@ -164,12 +168,11 @@ export default class Game {
         const elapsed = time - this.lastUpdate;
         this.tickTime += elapsed;
         this.lastUpdate = time;
-        this.world.runSystems('everyframe');
         this.world.runSystems('render');
         this.world.tick();
     }
 
-    makeMap() {
+    makeMap(): Grid<{light: Entity | undefined; tile: Entity}> {
         this.map = new Uniform(WIDTH, HEIGHT, {});
         const tiles = new Array(HEIGHT).fill(undefined).map(() => new Array(WIDTH).fill(undefined));
         const {dungeon, colorizedDungeon, lightColors} = makeDungeon(WIDTH, HEIGHT);
@@ -194,8 +197,9 @@ export default class Game {
                     },
                 },
             });
+            let light;
             if (lightColors[row][col]) {
-                const light = this.world.createEntity({
+                light = this.world.createEntity({
                     c: {
                         Light: {
                             base: {...lightColors[row][col]},
@@ -223,7 +227,7 @@ export default class Game {
                     timer: Math.random() * colorizedDungeon[row][col].fg.dancing.period,
                 });
             }
-            tiles[row][col] = tile;
+            tiles[row][col] = {tile, light};
         });
         return tiles;
     }

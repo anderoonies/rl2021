@@ -7,6 +7,7 @@ export class DancingColor extends Component({
     period: 0,
     timer: 0,
 }) {}
+
 export class Light extends Component({
     base: {r: 0, g: 0, b: 0, alpha: 0},
     current: {r: 0, g: 0, b: 0, alpha: 0},

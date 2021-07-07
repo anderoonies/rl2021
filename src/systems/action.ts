@@ -32,7 +32,6 @@ class ActionSystem extends System {
         this.lightColors = lightColors;
         this.rotLighting = rotLighting;
         this.tileMap = tileMap;
-        debugger;
         this.moveQuery = this.createQuery().fromAll(ActionMove, Position);
         this.fov = fov;
 

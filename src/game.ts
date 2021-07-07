@@ -1,6 +1,6 @@
 import * as ROT from 'rot-js';
 import {DisplayOptions} from 'rot-js/lib/display/types';
-import {Entity, IComponentConfigValObject, Query, World} from 'ape-ecs';
+import {Entity, IComponentConfigVal, Query, World} from 'ape-ecs';
 
 import * as allComponents from './components';
 import {
@@ -13,6 +13,7 @@ import {
     Map,
     Character,
     PlayerControlled,
+    Visible,
 } from './components';
 
 import ActionSystem from './systems/action';
@@ -63,15 +64,15 @@ export default class Game {
 
         // this.world.registerTags(Character.name, PlayerControlled.name);
 
-        const player = this.world.createEntity({
-            c: {
-                Character: {},
-                PlayerControlled: {},
-                Position: {
-                    x: 8,
-                    y: 12,
-                },
-                Renderable: {
+        const player = this.world.createEntity<
+            Character | PlayerControlled | Position | Renderable | Visible
+        >({
+            c: [
+                {type: Character},
+                {type: PlayerControlled},
+                {type: Position, x: 8, y: 12},
+                {
+                    type: Renderable,
                     char: '@',
                     baseBG: {r: 0, g: 0, b: 0, alpha: 0},
                     bg: {r: 0, g: 0, b: 0, alpha: 0},
@@ -79,8 +80,8 @@ export default class Game {
                     fg: {r: 150, g: 150, b: 150, alpha: 1},
                     visible: true,
                 },
-                Visible: {},
-            },
+                {type: Visible},
+            ],
         });
         const tiles = this.makeMap();
         this.fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
@@ -179,12 +180,10 @@ export default class Game {
         this.lightColors = lightColors;
         this.map.create((col, row, contents) => {
             const tile = this.world.createEntity({
-                c: {
-                    Position: {
-                        x: col,
-                        y: row,
-                    },
-                    Renderable: {
+                c: [
+                    {type: Position, x: col, y: row},
+                    {
+                        type: Renderable,
                         char: dungeon[row][col].letter,
                         fg: colorizedDungeon[row][col].fg,
                         bg: colorizedDungeon[row][col].bg,
@@ -192,24 +191,20 @@ export default class Game {
                         baseBG: colorizedDungeon[row][col].bg,
                         visible: false,
                     },
-                    Tile: {
-                        flags: dungeon[row][col].flags,
-                    },
-                },
+                    {type: Tile, flags: dungeon[row][col].flags},
+                ],
             });
             let light;
             if (lightColors[row][col]) {
                 light = this.world.createEntity({
-                    c: {
-                        Light: {
+                    c: [
+                        {
+                            type: Light,
                             base: {...lightColors[row][col]},
                             current: {...lightColors[row][col]},
                         },
-                        Position: {
-                            x: col,
-                            y: row,
-                        },
-                    },
+                        {type: Position, x: col, y: row},
+                    ],
                 });
                 if (lightColors[row][col].dancing) {
                     light.addComponent({

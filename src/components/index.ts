@@ -1,5 +1,4 @@
 import {TypedComponent as Component} from 'ape-ecs';
-import Action from 'rot-js/lib/scheduler/action';
 
 export class ActionMove extends Component<{x: number; y: number}>({x: 0, y: 0}) {}
 

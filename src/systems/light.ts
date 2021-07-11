@@ -2,19 +2,18 @@ import {Query, System} from 'ape-ecs';
 import {Color as ROTColor, Display} from 'rot-js';
 import {Color} from 'rot-js/lib/color';
 import {DancingColor, Light, Position, Visible} from '../components';
-import {Grid, RGBColor} from '../level-generation/types';
 
 export default class LightRender extends System {
     lightQuery: Query;
     display: Display;
 
     init(display: Display) {
-        this.lightQuery = this.world.createQuery().fromAll(Light, Visible, Position);
+        this.lightQuery = this.world.createQuery().fromAll(Light, Position);
         this.display = display;
     }
 
     update(dt: number) {
-        for (const entity of this.lightQuery.execute()) {
+        for (const entity of this.lightQuery.refresh().execute()) {
             const position = entity.getOne(Position);
             const light = entity.getOne(Light);
             const dancing = entity.getOne(DancingColor);
@@ -35,9 +34,9 @@ export default class LightRender extends System {
                 }
                 dancing.update({timer: dancing.timer - dt});
             }
-            const lightValue = [light.current.r, light.current.g, light.current.b].map(
-                Math.floor
-            ) as Color;
+            const lightValue = [light.current.r, light.current.g, light.current.b]
+                .map(c => c * 20)
+                .map(Math.floor) as Color;
             const [_, __, ch, existingFG, existingBG] =
                 this.display._data[`${position.x},${position.y}`];
             let existingFGColor = ROTColor.fromString(existingFG);

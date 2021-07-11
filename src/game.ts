@@ -1,39 +1,29 @@
+import {Entity, Query, World} from 'ape-ecs';
 import * as ROT from 'rot-js';
 import {DisplayOptions} from 'rot-js/lib/display/types';
-import {
-    Entity,
-    IComponentConfigVal,
-    IComponentConfigValList,
-    IEntityConfig,
-    Query,
-    World,
-} from 'ape-ecs';
-
+import FOV from 'rot-js/lib/fov/fov';
+import Uniform from 'rot-js/lib/map/uniform';
 import * as allComponents from './components';
 import {
     ActionMove,
-    Position,
-    Renderable,
+    Character,
     DancingColor,
     Light,
-    Tile,
     Map,
-    Character,
     PlayerControlled,
+    Position,
+    Renderable,
+    Tile,
     Visible,
 } from './components';
-
-import ActionSystem from './systems/action';
-import RenderSystem from './systems/render';
-import MemoryRenderSystem from './systems/memoryrender';
-import LightSystem from './systems/light';
-
-import {makeDungeon} from './level-generation/generator';
 import {HEIGHT, WIDTH} from './level-generation/constants';
-import Uniform from 'rot-js/lib/map/uniform';
+import {makeDungeon} from './level-generation/generator';
 import {Grid, RGBColor} from './level-generation/types';
-import FOV from 'rot-js/lib/fov/fov';
+import ActionSystem from './systems/action';
+import LightSystem from './systems/light';
+import MemoryRenderSystem from './systems/memoryrender';
 import PlayerRender from './systems/playerrender';
+import RenderSystem from './systems/render';
 
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
@@ -81,7 +71,6 @@ export default class Game {
                     bg: {r: 0, g: 0, b: 0, alpha: 0},
                     baseFG: {r: 150, g: 150, b: 150, alpha: 1},
                     fg: {r: 150, g: 150, b: 150, alpha: 1},
-                    // visible: true,
                 },
                 {type: Visible},
             ],
@@ -110,8 +99,8 @@ export default class Game {
             this.lightColors,
         ]);
         this.world.registerSystem('render', RenderSystem, [this.display]);
-        this.world.registerSystem('render', LightSystem, [this.display]);
         this.world.registerSystem('render', MemoryRenderSystem, [this.display]);
+        this.world.registerSystem('light', LightSystem, [this.display]);
         this.world.registerSystem('render', PlayerRender, [this.display]);
 
         this.fov.compute(8, 12, Infinity, (x, y, r, v) => {
@@ -173,6 +162,7 @@ export default class Game {
         this.tickTime += elapsed;
         this.lastUpdate = time;
         this.world.runSystems('render');
+        // this.world.runSystems('light');
         this.world.tick();
     }
 
@@ -182,29 +172,41 @@ export default class Game {
         const {dungeon, colorizedDungeon, lightColors} = makeDungeon(WIDTH, HEIGHT);
         this.lightColors = lightColors;
         this.map.create((col, row, contents) => {
-            const tile = this.world.createEntity({
+            const tile = this.world.createEntityTypesafe({
                 c: [
                     {type: Position, x: col, y: row},
                     {
                         type: Renderable,
                         char: dungeon[row][col].letter,
-                        fg: colorizedDungeon[row][col].fg,
-                        bg: colorizedDungeon[row][col].bg,
-                        baseFG: colorizedDungeon[row][col].fg,
-                        baseBG: colorizedDungeon[row][col].bg,
-                        visible: false,
+                        fg: {
+                            ...colorizedDungeon[row][col].fg,
+                            alpha: colorizedDungeon[row][col].fg.alpha,
+                        },
+                        bg: {
+                            ...colorizedDungeon[row][col].bg,
+                            alpha: colorizedDungeon[row][col].bg.alpha,
+                        },
+                        baseFG: {
+                            ...colorizedDungeon[row][col].fg,
+                            alpha: colorizedDungeon[row][col].fg.alpha,
+                        },
+                        baseBG: {
+                            ...colorizedDungeon[row][col].bg,
+                            alpha: colorizedDungeon[row][col].bg.alpha,
+                        },
+                        // visible: false,
                     },
                     {type: Tile, flags: dungeon[row][col].flags},
                 ],
             });
             let light;
             if (lightColors[row][col]) {
-                light = this.world.createEntity({
+                light = this.world.createEntityTypesafe({
                     c: [
                         {
                             type: Light,
-                            base: {...lightColors[row][col]},
-                            current: {...lightColors[row][col]},
+                            base: {...lightColors[row][col], alpha: lightColors[row][col].alpha},
+                            current: {...lightColors[row][col], alpha: lightColors[row][col].alpha},
                         },
                         {type: Position, x: col, y: row},
                     ],

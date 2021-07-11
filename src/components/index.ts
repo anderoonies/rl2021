@@ -7,6 +7,7 @@ export class DancingColor extends Component({
     period: 0,
     timer: 0,
 }) {}
+
 export class Light extends Component({
     base: {r: 0, g: 0, b: 0, alpha: 0},
     current: {r: 0, g: 0, b: 0, alpha: 0},
@@ -19,8 +20,9 @@ export class Renderable extends Component({
     fg: {r: 0, g: 0, b: 0, alpha: 0},
     baseBG: {r: 0, g: 0, b: 0, alpha: 0},
     bg: {r: 0, g: 0, b: 0, alpha: 0},
-    visible: false,
 }) {}
+export class Visible extends Component({}) {}
+export class Memory extends Component({}) {}
 
 export class Tile extends Component({
     flags: {

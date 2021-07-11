@@ -29,7 +29,7 @@ export type RoomType = typeof ROOM_TYPES[keyof typeof ROOM_TYPES];
 export type FeatureType = typeof DUNGEON_FEATURE_CATALOG[keyof typeof DUNGEON_FEATURE_CATALOG];
 export type CellularAutomataRules = typeof CA.rules[keyof typeof CA.rules];
 
-export type ColorString = string;
+export type ColorString = `#${number}${number}${number}`;
 type ColoredCell = {bg: ColorString; fg: ColorString};
 export type DungeonCell = CellConstant | ColoredCell;
 export type AnnotatedCell = CellType & {constant: CellConstant};

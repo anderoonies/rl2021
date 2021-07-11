@@ -1,6 +1,13 @@
 import * as ROT from 'rot-js';
 import {DisplayOptions} from 'rot-js/lib/display/types';
-import {Entity, IComponentConfigVal, Query, World} from 'ape-ecs';
+import {
+    Entity,
+    IComponentConfigVal,
+    IComponentConfigValList,
+    IEntityConfig,
+    Query,
+    World,
+} from 'ape-ecs';
 
 import * as allComponents from './components';
 import {
@@ -62,11 +69,7 @@ export default class Game {
 
         this.registerComponents();
 
-        // this.world.registerTags(Character.name, PlayerControlled.name);
-
-        const player = this.world.createEntity<
-            Character | PlayerControlled | Position | Renderable | Visible
-        >({
+        const player = this.world.createEntityTypesafe({
             c: [
                 {type: Character},
                 {type: PlayerControlled},
@@ -78,7 +81,7 @@ export default class Game {
                     bg: {r: 0, g: 0, b: 0, alpha: 0},
                     baseFG: {r: 150, g: 150, b: 150, alpha: 1},
                     fg: {r: 150, g: 150, b: 150, alpha: 1},
-                    visible: true,
+                    // visible: true,
                 },
                 {type: Visible},
             ],

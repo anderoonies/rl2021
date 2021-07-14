@@ -46,5 +46,5 @@ export class Map extends Component({
     tiles: [[]],
 }) {}
 
-export class Character extends Component({}) {}
+export class Creature extends Component({}) {}
 export class PlayerControlled extends Component({}) {}

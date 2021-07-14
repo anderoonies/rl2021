@@ -82,7 +82,7 @@ class ActionSystem extends System {
                 const newVisible = cloneDeep(this.lastVisible);
                 console.log(`move to ${pos.y},${pos.x}`);
                 this.fov.compute(pos.x, pos.y, WIDTH, (x, y, r, visiblity) => {
-                    if (y >= HEIGHT || x >= WIDTH) {
+                    if (y >= HEIGHT || x >= WIDTH || x < 0 || y < 0) {
                         return;
                     }
                     newVisible[`${y},${x}`].visible += 1;

@@ -6,7 +6,7 @@ import Uniform from 'rot-js/lib/map/uniform';
 import * as allComponents from './components';
 import {
     ActionMove,
-    Character,
+    Creature,
     DancingColor,
     Light,
     Map,
@@ -22,7 +22,7 @@ import {Grid, RGBColor} from './level-generation/types';
 import ActionSystem from './systems/action';
 import LightSystem from './systems/light';
 import MemoryRenderSystem from './systems/memoryrender';
-import PlayerRender from './systems/playerrender';
+import CreatureRender from './systems/playerrender';
 import RenderSystem from './systems/render';
 
 const options: Partial<DisplayOptions> = {
@@ -43,6 +43,8 @@ export default class Game {
     lastUpdate: number;
     tickTime: number;
     playerQuery: Query;
+    player: Entity;
+    seed: string;
     map: Uniform;
     fov: FOV;
     lighting: ROT.Lighting;
@@ -61,9 +63,8 @@ export default class Game {
 
         const player = this.world.createEntityTypesafe({
             c: [
-                {type: Character},
+                {type: Creature},
                 {type: PlayerControlled},
-                {type: Position, x: 8, y: 12},
                 {
                     type: Renderable,
                     char: '@',
@@ -75,6 +76,7 @@ export default class Game {
                 {type: Visible},
             ],
         });
+        this.player = player;
         const tiles = this.makeMap();
         this.fov = new ROT.FOV.PreciseShadowcasting((x, y) => {
             const playerPosition = player.getOne(Position);
@@ -101,12 +103,21 @@ export default class Game {
         this.world.registerSystem('render', RenderSystem, [this.display]);
         this.world.registerSystem('render', MemoryRenderSystem, [this.display]);
         this.world.registerSystem('light', LightSystem, [this.display]);
-        this.world.registerSystem('render', PlayerRender, [this.display]);
+        this.world.registerSystem('postrender', CreatureRender, [this.display]);
 
-        this.fov.compute(8, 12, Infinity, (x, y, r, v) => {
-            tiles[y][x].tile.addComponent({type: allComponents.Visible});
-            tiles[y][x].light?.addComponent({type: allComponents.Visible});
-        });
+        const playerPosition = player.getOne(Position);
+        this.fov.compute(
+            playerPosition.x,
+            playerPosition.y,
+            Math.max(WIDTH, HEIGHT),
+            (x, y, r, v) => {
+                if (y < 0 || x < 0 || y >= HEIGHT || y >= WIDTH) {
+                    return;
+                }
+                tiles[y][x].tile.addComponent({type: allComponents.Visible});
+                tiles[y][x].light?.addComponent({type: allComponents.Visible});
+            }
+        );
 
         this.playerQuery = this.world.createQuery().fromAll('PlayerControlled');
         window.addEventListener('keydown', e => {
@@ -141,6 +152,9 @@ export default class Game {
                             y: 0,
                         });
                         break;
+                    case 'Enter':
+                        this.makeMap();
+                        break;
                     default:
                         console.log(e.code);
                         break;
@@ -162,6 +176,7 @@ export default class Game {
         this.tickTime += elapsed;
         this.lastUpdate = time;
         this.world.runSystems('render');
+        this.world.runSystems('postrender');
         // this.world.runSystems('light');
         this.world.tick();
     }
@@ -169,8 +184,18 @@ export default class Game {
     makeMap(): Grid<{light: Entity | undefined; tile: Entity}> {
         this.map = new Uniform(WIDTH, HEIGHT, {});
         const tiles = new Array(HEIGHT).fill(undefined).map(() => new Array(WIDTH).fill(undefined));
-        const {dungeon, colorizedDungeon, lightColors} = makeDungeon(WIDTH, HEIGHT);
+        this.seed = '111';
+        const seedDestination = document.querySelector('#seed');
+        if (seedDestination) {
+            seedDestination.innerHTML = `Seed: ${this.seed}`;
+        }
+        const {dungeon, colorizedDungeon, lightColors, monsters} = makeDungeon(
+            WIDTH,
+            HEIGHT,
+            this.seed
+        );
         this.lightColors = lightColors;
+        let foundASpotForThePlayer = false;
         this.map.create((col, row, contents) => {
             const tile = this.world.createEntityTypesafe({
                 c: [
@@ -194,11 +219,14 @@ export default class Game {
                             ...colorizedDungeon[row][col].bg,
                             alpha: colorizedDungeon[row][col].bg.alpha,
                         },
-                        // visible: false,
                     },
                     {type: Tile, flags: dungeon[row][col].flags},
                 ],
             });
+            if (!dungeon[row][col].flags?.OBSTRUCTS_PASSIBILITY && !foundASpotForThePlayer) {
+                this.player.addComponent({type: Position, x: col, y: row});
+                foundASpotForThePlayer = true;
+            }
             let light;
             if (lightColors[row][col]) {
                 light = this.world.createEntityTypesafe({
@@ -229,6 +257,33 @@ export default class Game {
             }
             tiles[row][col] = {tile, light};
         });
+
+        monsters.forEach(monster => {
+            this.world.createEntityTypesafe({
+                c: [
+                    {
+                        type: Renderable,
+                        char: monster.info.ch,
+                        fg: {...monster.info.color, alpha: 1},
+                        baseFG: {...monster.info.color, alpha: 1},
+                        baseBG: {r: 0, g: 0, b: 0, alpha: 0},
+                        bg: {r: 0, g: 0, b: 0, alpha: 0},
+                    },
+                    {
+                        type: Position,
+                        x: monster.xLoc,
+                        y: monster.yLoc,
+                    },
+                    {
+                        type: Visible,
+                    },
+                    {
+                        type: Creature,
+                    },
+                ],
+            });
+        });
+
         return tiles;
     }
 }

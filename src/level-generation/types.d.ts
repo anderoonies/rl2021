@@ -9,14 +9,11 @@ import {
     HORDE_FLAGS,
     BEHAVIOR_FLAGS,
     ABILITY_FLAGS,
+    CELL_FLAGS,
 } from './constants';
 
 export type CellConstant = typeof CELL_TYPES[keyof typeof CELL_TYPES];
-type CellFlags = {
-    OBSTRUCTS_PASSIBILITY?: boolean;
-    OBSTRUCTS_VISION?: boolean;
-    YIELD_LETTER?: boolean;
-};
+type CellFlags = number;
 export type CellType = {
     type: string;
     color: {fg: string; bg: string; dances?: boolean};
@@ -87,7 +84,7 @@ type CellColorLayer = RGBColor & {
 type Dungeon = {
     DUNGEON: Grid<CellConstant>;
     TERRAIN: Grid<CellConstant>;
-    FLAGS: Grid<Record<string, boolean>>;
+    FLAGS: Grid<number>;
 };
 
 // Monsters D:<

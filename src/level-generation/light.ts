@@ -1,15 +1,8 @@
-import Dungeon from 'rot-js/lib/map/dungeon';
-import {CELL_WIDTH} from './constants';
-
-import {BRIGHT_THRESHOLD, DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX} from './constants';
-import {AnnotatedCell, CellColor, CellColorLayer, Grid, LightSource, RGBColor} from './types';
-import * as Color from 'color';
-import {rgb} from 'color-convert/route';
+import {CELL_FLAGS, CELL_WIDTH, DARKNESS_MAX} from './constants';
+import {AnnotatedCell, CellColorLayer, Grid, LightSource, RGBColor} from './types';
 
 const gridFromDimensions = require('./utils').gridFromDimensions;
 const randomRange = require('./utils').randomRange;
-const HEIGHT = require('./constants').HEIGHT;
-const WIDTH = require('./constants').WIDTH;
 
 // http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting
 //              Shared
@@ -92,7 +85,7 @@ const cast = ({
 
             light[gridY][gridX] = 1;
             let currentlyBlocked;
-            currentlyBlocked = dungeon[gridY][gridX].flags.OBSTRUCTS_VISION;
+            currentlyBlocked = dungeon[gridY][gridX].flags & CELL_FLAGS.OBSTRUCTS_VISION;
             if (previousWasBlocked) {
                 if (currentlyBlocked) {
                     // keep traversing
@@ -162,7 +155,7 @@ const getFOVMask = ({
     col: number;
     dungeon: Grid<AnnotatedCell>;
 }) => {
-    let light = gridFromDimensions(HEIGHT, WIDTH, 0);
+    let light = gridFromDimensions(dungeon.length, dungeon[0].length, 0);
     for (var octant = 0; octant < 8; octant++) {
         cast({
             startColumn: 1,
@@ -192,9 +185,9 @@ const paintLight = ({
     lightMap: Grid<CellColorLayer | undefined>;
 }) => {
     const radius = Math.floor(randomRange(lightSource.minRadius, lightSource.maxRadius) / 100);
-    let lightHyperspace = gridFromDimensions(HEIGHT, WIDTH, undefined);
-    for (let i = Math.max(0, row - radius); i < HEIGHT && i < row + radius; i++) {
-        for (let j = Math.max(0, col - radius); j < WIDTH && j < col + radius; j++) {
+    let lightHyperspace = gridFromDimensions(dungeon.length, dungeon[0].length, undefined);
+    for (let i = Math.max(0, row - radius); i < dungeon.length && i < row + radius; i++) {
+        for (let j = Math.max(0, col - radius); j < dungeon[0].length && j < col + radius; j++) {
             lightHyperspace[i][j] = 0;
         }
     }
@@ -224,8 +217,8 @@ const paintLight = ({
 
     let lightMultiplier: number;
     const fadeToPercent = lightSource.fade;
-    for (let i = Math.max(0, row - radius); i < HEIGHT && i < row + radius; i++) {
-        for (let j = Math.max(0, col - radius); j < WIDTH && j < col + radius; j++) {
+    for (let i = Math.max(0, row - radius); i < dungeon.length && i < row + radius; i++) {
+        for (let j = Math.max(0, col - radius); j < dungeon[0].length && j < col + radius; j++) {
             if (lightHyperspace[i][j]) {
                 lightMultiplier =
                     100 -
@@ -272,14 +265,14 @@ export const lightDungeon = ({
     mixedColors: Grid<{fg: RGBColor; bg: RGBColor}>;
     lightColors: Grid<CellColorLayer | undefined>;
 } => {
-    let lightMap = gridFromDimensions(HEIGHT, WIDTH, undefined);
+    let lightMap = gridFromDimensions(dungeon.length, dungeon[0].length, undefined);
     let lightColors: Grid<RGBColor | undefined> = gridFromDimensions(
         colors.length,
         colors[0].length,
         undefined
     );
-    for (let row = 0; row < HEIGHT; row++) {
-        for (let col = 0; col < WIDTH; col++) {
+    for (let row = 0; row < dungeon.length; row++) {
+        for (let col = 0; col < dungeon[0].length; col++) {
             if (dungeon[row][col].glowLight) {
                 lightMap = paintLight({
                     lightSource: dungeon[row][col].glowLight,
@@ -292,8 +285,8 @@ export const lightDungeon = ({
         }
     }
     let lightColor: RGBColor;
-    for (let row = 0; row < HEIGHT; row++) {
-        for (let col = 0; col < WIDTH; col++) {
+    for (let row = 0; row < dungeon.length; row++) {
+        for (let col = 0; col < dungeon[0].length; col++) {
             lightColor = lightMap[row][col];
             if (lightMap[row][col]) {
                 if (mutate) {

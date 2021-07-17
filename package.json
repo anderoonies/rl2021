@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack",
     "watch": "webpack --watch",
-    "serve": "live-server --port=8085"
+    "serve": "live-server --port=8085",
+    "dump": "webpack"
   },
   "author": "",
   "license": "ISC",

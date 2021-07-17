@@ -13,7 +13,7 @@ import {
 } from '../components';
 import {CellColorLayer, Grid, LightSource, RGBColor} from '../level-generation/types';
 import {cloneDeep} from 'lodash';
-import {HEIGHT, WIDTH} from '../level-generation/constants';
+import {CELL_FLAGS, HEIGHT, WIDTH} from '../level-generation/constants';
 
 class ActionSystem extends System {
     moveQuery: Query;
@@ -46,7 +46,7 @@ class ActionSystem extends System {
     }
 
     canMove({x, y}: {x: number; y: number}): boolean {
-        return !this.tileMap[y]?.[x]?.tile.getOne(Tile).flags.OBSTRUCTS_PASSIBILITY;
+        return !(this.tileMap[y]?.[x]?.tile.getOne(Tile).flags & CELL_FLAGS.OBSTRUCTS_PASSIBILITY);
     }
 
     update(tick: number) {

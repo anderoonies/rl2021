@@ -31,12 +31,9 @@ export const DEBUG_FLAGS = {
     SHOW_CA: false,
     FIT: true,
     NO_MONSTERS: false,
-    SHOW_ARC_COUNT: true,
 } as const;
 
-export const WIDTH = DEBUG_FLAGS.SHOW_ARC_COUNT
-    ? 40
-    : DEBUG_FLAGS.FIT
+export let WIDTH = DEBUG_FLAGS.FIT
     ? Math.max(
           2 *
               Math.round(
@@ -47,11 +44,13 @@ export const WIDTH = DEBUG_FLAGS.SHOW_ARC_COUNT
           40
       )
     : 80;
-export const HEIGHT = DEBUG_FLAGS.SHOW_ARC_COUNT
-    ? 20
-    : DEBUG_FLAGS.FIT
-    ? Math.max(20, 2 * Math.round(WIDTH / 4 / 2))
-    : 32;
+export let HEIGHT = DEBUG_FLAGS.FIT ? Math.max(20, 2 * Math.round(WIDTH / 4 / 2)) : 32;
+export const setWidth = (w: number) => {
+    WIDTH = w;
+};
+export const setHeight = (h: number) => {
+    HEIGHT = h;
+};
 
 // rooms
 export const ROOM_MIN_WIDTH = 4;
@@ -68,6 +67,14 @@ export const ROOM_TYPES = {
     CIRCLE: 1,
     SYMMETRICAL_CROSS: 2,
 } as const;
+
+export enum CELL_FLAGS {
+    OBSTRUCTS_PASSIBILITY = 1,
+    OBSTRUCTS_VISION = 1 << 1,
+    YIELD_LETTER = 1 << 2,
+    HAS_MONSTER = 1 << 3,
+    NEVER_PASSABLE = 1 << 4,
+}
 
 export const CELL_TYPES = {
     DEBUG: -10,
@@ -196,92 +203,83 @@ export const CELLS: Record<CellConstant, CellType> = {
         letter: ',',
         color: COLORS.EMPTY,
         priority: -1,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EMPTY]: {
         type: 'EMPTY',
         color: COLORS.EMPTY,
         letter: ' ',
         priority: -1,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.FLOOR]: {
         type: 'FLOOR',
         color: COLORS.FLOOR,
         letter: ' ',
         priority: 9,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.WALL]: {
         type: 'WALL',
         color: COLORS.WALL,
         letter: '#',
         priority: 18,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags:
+            CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
+            CELL_FLAGS.OBSTRUCTS_VISION |
+            CELL_FLAGS.NEVER_PASSABLE,
     },
     [CELL_TYPES.ROCK]: {
         type: 'ROCK',
         color: COLORS.ROCK,
         letter: '#',
         priority: 15,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags:
+            CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
+            CELL_FLAGS.OBSTRUCTS_VISION |
+            CELL_FLAGS.NEVER_PASSABLE,
     },
     [CELL_TYPES.DOOR]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '+',
         priority: 16,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.EXIT_NORTH]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '^',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EXIT_EAST]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '>',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EXIT_SOUTH]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: 'V',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EXIT_WEST]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '<',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.LAKE]: {
         type: 'LAKE',
         color: COLORS.LAKE,
         letter: '~',
         priority: 20,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_PASSIBILITY,
         // GLOWING WATER!!!!
         // glowLight: {
         //     // {1000, 1000, 1},		50,		false}
@@ -309,77 +307,56 @@ export const CELLS: Record<CellConstant, CellType> = {
         color: COLORS.SHALLOW_WATER,
         letter: '~',
         priority: 19,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.GRANITE]: {
         type: 'GRANITE',
         color: COLORS.GRANITE,
         letter: 'g',
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_PASSIBILITY | CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.LUMINESCENT_FUNGUS]: {
         type: 'luminescent_fungus',
         color: COLORS.LUMINESCENT_FUNGUS,
         letter: 'f',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.GRASS]: {
         type: 'GRASS',
         color: COLORS.GRASS,
         letter: '"',
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.DEAD_GRASS]: {
         type: 'DEAD_GRASS',
         color: COLORS.DEAD_GRASS,
         letter: '"',
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.DEAD_FOLIAGE]: {
         type: 'DEAD_FOLIAGE',
         color: COLORS.DEAD_GRASS,
         letter: String.fromCharCode(0x03b3),
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.FOLIAGE]: {
         type: 'FOLIAGE',
         color: COLORS.GRASS,
         letter: String.fromCharCode(0x03b3),
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.RUBBLE]: {
         type: 'RUBBLE',
         color: COLORS.RUBBLE,
         letter: ',',
         priority: 11,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.TORCH_WALL]: {
         type: 'TORCH_WALL',
@@ -406,21 +383,14 @@ export const CELLS: Record<CellConstant, CellType> = {
                 },
             },
         },
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: 0,
     },
     [CELL_TYPES.HAZE]: {
         type: 'HAZE',
         color: COLORS.HAZE,
         letter: ' ',
         priority: 0,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-            YIELD_LETTER: true,
-        },
+        flags: CELL_FLAGS.YIELD_LETTER,
     },
     [CELL_TYPES.LIGHT_POOL]: {
         type: 'LIGHT_POOL',
@@ -428,9 +398,7 @@ export const CELLS: Record<CellConstant, CellType> = {
         color: COLORS.EMPTY,
         letter: 'x',
         priority: 0,
-        flags: {
-            YIELD_LETTER: true,
-        },
+        flags: CELL_FLAGS.YIELD_LETTER,
         glowLight: {
             // {1000, 1000, 1},		50,		false}
             minRadius: 200,

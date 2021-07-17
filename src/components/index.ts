@@ -32,12 +32,9 @@ export class Visible extends Component({}) {}
 export class Memory extends Component({}) {}
 
 export class Tile extends Component<{
-    flags: {OBSTRUCTS_PASSIBILITY?: boolean; OBSTRUCTS_VISION?: boolean};
+    flags: number;
 }>({
-    flags: {
-        OBSTRUCTS_PASSIBILITY: false,
-        OBSTRUCTS_VISION: false,
-    },
+    flags: 0,
 }) {}
 
 export class Map extends Component({

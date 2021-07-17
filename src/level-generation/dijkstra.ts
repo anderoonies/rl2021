@@ -6,8 +6,7 @@
 // 6. select the minimum tentative distance unvisited node.
 
 import {DIR_TO_TRANSFORM, CELL_TYPES} from './constants';
-import {annotateCells} from './generator';
-import {coordinatesAreInMap} from './utils';
+import {coordinatesAreInMap} from './generator';
 import {Grid, AnnotatedCell} from './types';
 
 type DNode = {

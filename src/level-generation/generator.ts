@@ -6,6 +6,7 @@ import {
     CA,
     CARDINAL_DIRECTIONS,
     CELLS,
+    CELL_FLAGS,
     CELL_TYPES,
     DEBUG_FLAGS,
     DIRECTIONS,
@@ -14,7 +15,7 @@ import {
     DUNGEON_FEATURE_CATALOG,
     EXIT_TYPE,
     HALLWAY_CHANCE,
-    HEIGHT,
+    HEIGHT as DEFAULT_HEIGHT,
     HORDE_CATALOG,
     HORIZONTAL_CORRIDOR_MAX_LENGTH,
     HORIZONTAL_CORRIDOR_MIN_LENGTH,
@@ -23,7 +24,7 @@ import {
     ROOM_TYPES,
     VERTICAL_CORRIDOR_MAX_LENGTH,
     VERTICAL_CORRIDOR_MIN_LENGTH,
-    WIDTH,
+    WIDTH as DEFAULT_WIDTH,
 } from './constants';
 import {lightDungeon} from './light';
 import {
@@ -32,6 +33,7 @@ import {
     CellColor,
     CellColorLayer,
     CellConstant,
+    CellFlags,
     CellType,
     CellularAutomataRules,
     ColorString,
@@ -53,14 +55,24 @@ import {
     boundX,
     boundY,
     clamp,
-    coordinatesAreInMap,
     gridFromDimensions,
     randomRange,
     randomRangeInclusive,
 } from './utils';
 
+let HEIGHT = DEFAULT_HEIGHT;
+let WIDTH = DEFAULT_WIDTH;
+
 const pathDistance = require('./dijkstra').pathDistance;
 const propagateShortcut = require('./dijkstra').propagateShortcut;
+
+const coordinatesAreInMap = (row: number, col: number, dungeon?: Grid) => {
+    if (dungeon === undefined) {
+        return row >= 0 && row < HEIGHT && col >= 0 && col < WIDTH;
+    } else {
+        return row >= 0 && row < dungeon.length && col >= 0 && col < dungeon[0].length;
+    }
+};
 
 const randColorFrom = (baseColor: ColorString, range: number) => {
     const f = parseInt(baseColor.slice(1), 16);
@@ -125,11 +137,7 @@ const drawContinuousShapeOnGrid = <T extends DungeonCell>(
                 if (typeof map === 'function') {
                     copiedGrid[row + topOffset][col + leftOffset] = map(room[row][col]);
                 } else {
-                    try {
-                        copiedGrid[row + topOffset][col + leftOffset] = room[row][col];
-                    } catch (e) {
-                        debugger;
-                    }
+                    copiedGrid[row + topOffset][col + leftOffset] = room[row][col];
                 }
             }
         }
@@ -148,7 +156,7 @@ const drawDoorCoordinatesOnGrid = (doorSites: DoorSites, grid: Grid<number>) => 
 
 const cellIsPassableOrDoor = (dungeon: Dungeon, newX: number, newY: number): boolean => {
     return (
-        !CELLS[dungeon.DUNGEON[newY][newX]].flags.OBSTRUCTS_PASSIBILITY ||
+        !((CELLS[dungeon.DUNGEON[newY][newX]].flags & CELL_FLAGS.OBSTRUCTS_PASSIBILITY) > 0) ||
         dungeon.DUNGEON[newY][newX] === CELL_TYPES.DOOR
     );
 };
@@ -734,11 +742,15 @@ const placeRoomInDungeon = (
     return dungeon;
 };
 
-const annotateCells = (dungeon: Grid<CellConstant>): Grid<AnnotatedCell> => {
-    // map to cells for rendering
+const annotateCellsAndUpdateFlags = (
+    dungeon: Grid<number>,
+    flagMap?: Grid<number>
+): Grid<AnnotatedCell> => {
+    // map to cells for rendering, additionally populate flags
     return dungeon.map((row: Array<CellConstant>, rowIndex: number) => {
         return row.map((celltype: CellConstant, colIndex: number) => {
             const annotatedCell = CELLS[celltype];
+            flagMap && (flagMap[rowIndex][colIndex] |= annotatedCell.flags);
             return {
                 ...annotatedCell,
                 constant: celltype,
@@ -1004,16 +1016,18 @@ const cellHasTerrainFlag = (cell: CellConstant, terrain: CellConstant) => {
     return cell === terrain;
 };
 
-const randomMatchingLocation = ({
+export const randomMatchingLocation = ({
     dungeon,
     dungeonTypes,
     liquidTypes,
     terrainTypes,
+    forbiddenFlags,
 }: {
     dungeon: Dungeon;
     dungeonTypes: Array<CellConstant>;
     liquidTypes: Array<CellConstant>;
     terrainTypes?: Array<CellConstant>;
+    forbiddenFlags?: number;
 }): {row: number; col: number} | false => {
     let failSaveCount = 0;
     let row: number;
@@ -1021,15 +1035,34 @@ const randomMatchingLocation = ({
     let randomizedCoordinates = Array.from(Array(WIDTH * HEIGHT).keys());
     randomizedCoordinates = shuffleList(randomizedCoordinates);
     let i = 0;
+    let dungeonRequirementSatisfied;
+    let liquidRequirementSatisfied;
+    let terrainRequirementSatisfied;
+    let forbiddenFlagsSatisfied;
     do {
         i++;
         row = randomizedCoordinates[i] % HEIGHT;
         col = Math.floor(randomizedCoordinates[i] / HEIGHT);
+        dungeonRequirementSatisfied =
+            dungeonTypes?.length > 0
+                ? dungeonTypes.every(type => dungeon.DUNGEON[row][col] === type)
+                : true;
+        liquidRequirementSatisfied = liquidTypes?.length
+            ? liquidTypes.every(type => dungeon.DUNGEON[row][col] === type)
+            : true;
+        terrainRequirementSatisfied = terrainTypes?.length
+            ? terrainTypes.every(type =>
+                  type === -1 ? true : cellHasTerrainFlag(dungeon.TERRAIN[row][col], type)
+              )
+            : true;
+        forbiddenFlagsSatisfied =
+            (dungeon.FLAGS[row][col] & (forbiddenFlags | CELL_FLAGS.NEVER_PASSABLE)) === 0;
     } while (
         i < 500 &&
-        ((dungeonTypes.length && dungeonTypes.indexOf(dungeon.DUNGEON[row][col]) === -1) ||
-            (liquidTypes.length && liquidTypes.indexOf(dungeon.DUNGEON[row][col]) === -1)) &&
-        !terrainTypes?.every(type => cellHasTerrainFlag(dungeon.TERRAIN[row][col], type))
+        (!dungeonRequirementSatisfied ||
+            !liquidRequirementSatisfied ||
+            !terrainRequirementSatisfied ||
+            !forbiddenFlagsSatisfied)
     );
     if (i >= 500) {
         return false;
@@ -1223,16 +1256,15 @@ const runAutogenerators = (dungeon: Dungeon, layer = 0) => {
             }
         }
     }
-    debugger;
     return hyperspace;
 };
 
 const cellObstructsVision = (row: number, col: number, dungeon: Grid<CellConstant>) => {
-    return CELLS[dungeon[row][col]].flags.OBSTRUCTS_VISION;
+    return CELLS[dungeon[row][col]].flags & CELL_FLAGS.OBSTRUCTS_VISION;
 };
 
 const cellObstructsPassibility = (row: number, col: number, dungeon: Grid<CellConstant>) => {
-    return CELLS[dungeon[row][col]].flags.OBSTRUCTS_PASSIBILITY;
+    return CELLS[dungeon[row][col]].flags & CELL_FLAGS.OBSTRUCTS_PASSIBILITY;
 };
 
 const finishWalls = (dungeon: Grid<CellConstant>, diagonals: boolean) => {
@@ -1281,10 +1313,10 @@ const finishWalls = (dungeon: Grid<CellConstant>, diagonals: boolean) => {
     return dungeon;
 };
 
-const addAtmosphericLayer = (dungeon: any) => {
-    const atmosphericFeatures = runAutogenerators(dungeon, 1);
-    return annotateCells(atmosphericFeatures);
-};
+// const addAtmosphericLayer = (dungeon: any) => {
+//     const atmosphericFeatures = runAutogenerators(dungeon, 1);
+//     return annotateCellsAndUpdateFlags(atmosphericFeatures);
+// };
 
 const extractRGB = ({r, g, b}: {r: number; g: number; b: number}) => ({
     r,
@@ -1333,7 +1365,7 @@ const flattenLayers = (
                 }));
                 layerColors[row][col] = {bg, fg};
                 if (lowerCell) {
-                    if (currentCell.flags.YIELD_LETTER) {
+                    if (currentCell.flags & CELL_FLAGS.YIELD_LETTER) {
                         flattenedDungeon[row][col].letter = lowerCell.letter;
                     }
                     if (bg.alpha < 1) {
@@ -1386,12 +1418,14 @@ const mergeGrids = (
     return mergedGrid;
 };
 
-const accreteRooms = (nRooms: number, dungeon?: Dungeon) => {
+const accreteRooms = (nRooms: number, width: number, height: number, dungeon?: Dungeon) => {
+    height = height || HEIGHT;
+    width = width || WIDTH;
     if (dungeon === undefined) {
         dungeon = {
-            DUNGEON: gridFromDimensions(HEIGHT, WIDTH, 0),
-            TERRAIN: gridFromDimensions(HEIGHT, WIDTH, 0),
-            FLAGS: gridFromDimensions(HEIGHT, WIDTH, {}),
+            DUNGEON: gridFromDimensions(height, width, 0),
+            TERRAIN: gridFromDimensions(height, width, 0),
+            FLAGS: gridFromDimensions(height, width, 0),
         };
     }
     let {hyperspace, doorSites} = designRoomInHyperspace();
@@ -1403,9 +1437,7 @@ const accreteRooms = (nRooms: number, dungeon?: Dungeon) => {
     dungeon.DUNGEON = addLoops(dungeon.DUNGEON);
     // add NESW walls first to give torches a place to attach
     dungeon.DUNGEON = finishWalls(dungeon.DUNGEON, false);
-    if (!DEBUG_FLAGS.SHOW_ARC_COUNT) {
-        dungeon = addLakes(dungeon);
-    }
+    dungeon = addLakes(dungeon);
 
     dungeon.TERRAIN = mergeGrids(
         runAutogenerators(dungeon),
@@ -1419,8 +1451,8 @@ const accreteRooms = (nRooms: number, dungeon?: Dungeon) => {
     dungeon.DUNGEON = finishWalls(dungeon.DUNGEON, true);
 
     const layers = [
-        annotateCells(dungeon.DUNGEON),
-        annotateCells(dungeon.TERRAIN),
+        annotateCellsAndUpdateFlags(dungeon.DUNGEON, dungeon.FLAGS),
+        annotateCellsAndUpdateFlags(dungeon.TERRAIN),
         // addAtmosphericLayer(dungeon),
     ];
 
@@ -1445,9 +1477,11 @@ const accreteRooms = (nRooms: number, dungeon?: Dungeon) => {
 };
 
 const makeDungeon = (width: number, height: number, seed?: string) => {
+    WIDTH = width;
+    HEIGHT = height;
     seed = seed || Date.now().toString();
     require('seedrandom')(seed, {global: true});
-    return accreteRooms(50);
+    return accreteRooms(50, width, height);
 };
 
 // Rotates around the cell, counting up the number of distinct strings of passable neighbors in a single revolution.
@@ -1508,17 +1542,16 @@ const chooseHordeType = (
         // && ((!summonerType && hordeCatalog[i].minLevel <= depth && hordeCatalog[i].maxLevel >= depth)
         //         || (summonerType && (hordeCatalog[i].flags & HORDE_IS_SUMMONED) && hordeCatalog[i].leaderType == summonerType))
         if (!forbiddenHordeType && meetsRequirements) {
-            possibilityCount += hordeType.frequency;
             hordeProbabilityBuckets = hordeProbabilityBuckets.concat({
                 probability: possibilityCount,
                 hordeCatalogIndex: i,
             });
+            possibilityCount += hordeType.frequency;
         }
     }
-
     let randomHordProbability = randomRange(0, possibilityCount);
     for (let i = hordeProbabilityBuckets.length - 1; i >= 0; i--) {
-        if (randomHordProbability < hordeProbabilityBuckets[i].probability) {
+        if (randomHordProbability >= hordeProbabilityBuckets[i].probability) {
             return hordeProbabilityBuckets[i].hordeCatalogIndex;
         }
     }
@@ -1558,7 +1591,6 @@ const spawnHorde = (
             hordeID = chooseHordeType(depth, 0, forbiddenHordeFlags, requiredHordeFlags);
             if (hordeID < 0) {
                 console.warn('no horde spawned :9 ');
-                debugger;
                 return null;
             }
             // if the spawner is being picky about location
@@ -1584,52 +1616,48 @@ const spawnHorde = (
         let bestX = x;
         let bestY = y;
         let location;
+        // do {
         do {
-            do {
-                location = randomMatchingLocation({
-                    dungeon,
-                    dungeonTypes: [CELL_TYPES.EMPTY],
-                    liquidTypes: [CELL_TYPES.EMPTY],
-                    terrainTypes: [HORDE_CATALOG[hordeID].spawnsIn],
-                });
-                if (typeof location === 'object') {
-                    ({col: bestX, row: bestY} = location);
-                }
-                if (--failSafe === 0) {
-                    console.warn('no horde spawned :9 ');
-                    debugger;
-                    return null;
-                }
-                hordeID = chooseHordeType(depth, 0, forbiddenHordeFlags, []);
-                if (hordeID < 0) {
-                    console.warn('no horde spawned :9 ');
-                    debugger;
-                    return null;
-                }
-            } while (!location || impassableArcCount(dungeon, bestX, bestY) > 1);
+            location = randomMatchingLocation({
+                dungeon,
+                dungeonTypes: [],
+                liquidTypes: [],
+                terrainTypes: [HORDE_CATALOG[hordeID].spawnsIn || -1],
+            });
+            if (typeof location === 'object') {
+                ({col: bestX, row: bestY} = location);
+            }
+            if (--failSafe === 0) {
+                console.warn('no horde spawned :9 ');
+                return null;
+            }
+            hordeID = chooseHordeType(depth, 0, forbiddenHordeFlags, []);
+            if (hordeID < 0) {
+                console.warn('no horde spawned :9 ');
+                return null;
+            }
+        } while (!location || impassableArcCount(dungeon, bestX, bestY) > 1);
 
-            x = bestX;
-            y = bestY;
-            i++;
-        } while (
-            i < 25
-            // && pmap[x][y].flags & (ANY_KIND_OF_VISIBLE | IN_FIELD_OF_VIEW)
-            // this checks to make sure monsters dont spawn within FOV of the stairs
-            // no stairs yet, so :shrug:
-        );
+        x = bestX;
+        y = bestY;
+        i++;
+        // } while (
+        //     i < 25
+        //     // && pmap[x][y].flags & (ANY_KIND_OF_VISIBLE | IN_FIELD_OF_VIEW)
+        //     // this checks to make sure monsters dont spawn within FOV of the stairs
+        //     // no stairs yet, so :shrug:
+        // );
     }
 
     const hordeType = HORDE_CATALOG[hordeID];
-    console.log(`decided to make a ${hordeType}`);
     const leader = generateMonster(hordeType.leaderType, true, true);
-    console.log(`made a ${leader.info.name}`);
     leader.xLoc = x;
     leader.yLoc = y;
     // todo: captives?
     // todo: allies?
     // todo: other horde flags...
     // todo: spawnMinions();
-    dungeon.FLAGS[y][x].HAS_MONSTER = true;
+    dungeon.FLAGS[y][x] |= CELL_FLAGS.HAS_MONSTER;
     return leader;
 };
 
@@ -1660,7 +1688,7 @@ export {
     flattenHyperspaceIntoDungeon,
     placeRoomInDungeon,
     gridFromDimensions,
-    annotateCells,
+    annotateCellsAndUpdateFlags as annotateCells,
     coordinatesAreInMap,
     transferRoomToDungeon,
     runCAGeneration,

@@ -17,9 +17,13 @@ import {
     Tile,
     Visible,
 } from './components';
-import {DEBUG_FLAGS} from './constants';
-import {HEIGHT, WIDTH} from './level-generation/constants';
-import {makeDungeon, impassableArcCount, coordinatesAreInMap} from './level-generation/generator';
+import {CELL_FLAGS, CELL_TYPES, HEIGHT, WIDTH} from './level-generation/constants';
+import {
+    makeDungeon,
+    impassableArcCount,
+    coordinatesAreInMap,
+    randomMatchingLocation,
+} from './level-generation/generator';
 import {Dungeon, Grid, RGBColor} from './level-generation/types';
 import ActionSystem from './systems/action';
 import LightSystem from './systems/light';
@@ -38,6 +42,11 @@ const options: Partial<DisplayOptions> = {
     height: HEIGHT,
 };
 
+export type DEBUG_FLAGS = {
+    OMNISCIENT?: boolean;
+    SHOW_PASSABLE_ARC_COUNT?: boolean;
+};
+
 export default class Game {
     display: ROT.Display;
     world: World;
@@ -53,9 +62,20 @@ export default class Game {
     dungeon: Dungeon;
     lighting: ROT.Lighting;
     lightColors: Grid<RGBColor>;
+    DEBUG_FLAGS: DEBUG_FLAGS;
 
-    constructor(container: HTMLElement, logdiv: HTMLElement, tileSet: HTMLImageElement) {
-        this.display = new ROT.Display(options);
+    constructor(
+        container: HTMLElement,
+        logdiv: HTMLElement,
+        tileSet: HTMLImageElement,
+        DEBUG_FLAGS?: DEBUG_FLAGS
+    ) {
+        this.DEBUG_FLAGS = {OMNISCIENT: false, SHOW_PASSABLE_ARC_COUNT: false, ...DEBUG_FLAGS};
+        this.display = new ROT.Display({
+            ...options,
+            width: this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT ? 40 : WIDTH,
+            height: this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT ? 20 : HEIGHT,
+        });
         this.world = new World();
 
         this.lastUpdate = performance.now();
@@ -87,7 +107,7 @@ export default class Game {
             if (x === playerPosition.x && y === playerPosition.y) {
                 return true;
             }
-            return !tiles?.[y]?.[x]?.tile.getOne(Tile).flags.OBSTRUCTS_VISION;
+            return !(tiles?.[y]?.[x]?.tile.getOne(Tile).flags & CELL_FLAGS.OBSTRUCTS_VISION);
         }, {});
         this.mapEntity = this.world.createEntity({
             id: 'map',
@@ -104,8 +124,8 @@ export default class Game {
             tiles,
             this.lightColors,
         ]);
-        this.world.registerSystem('render', RenderSystem, [this.display]);
-        if (!DEBUG_FLAGS.OMNISCIENT) {
+        this.world.registerSystem('render', RenderSystem, [this.display, this.DEBUG_FLAGS]);
+        if (!this.DEBUG_FLAGS.OMNISCIENT) {
             this.world.registerSystem('render', MemoryRenderSystem, [this.display]);
         }
         this.world.registerSystem('light', LightSystem, [this.display]);
@@ -129,7 +149,7 @@ export default class Game {
         this.playerQuery = this.world.createQuery().fromAll('PlayerControlled');
         let lastMouseX = 0;
         let lastMouseY = 0;
-        DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT &&
+        this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT &&
             window.addEventListener('mousemove', e => {
                 const [x, y] = this.display.eventToPosition(e);
                 if ((x !== lastMouseX || y !== lastMouseY) && coordinatesAreInMap(y, x)) {
@@ -211,21 +231,33 @@ export default class Game {
     }
 
     makeMap(): Grid<{light: Entity | undefined; tile: Entity}> {
-        this.map = new Uniform(WIDTH, HEIGHT, {});
-        const tiles = new Array(HEIGHT).fill(undefined).map(() => new Array(WIDTH).fill(undefined));
+        const dungeonWidth = this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT ? 40 : WIDTH;
+        const dungeonHeight = this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT ? 20 : HEIGHT;
+        this.map = new Uniform(dungeonWidth, dungeonHeight, {});
+        const tiles = new Array(dungeonHeight)
+            .fill(undefined)
+            .map(() => new Array(dungeonWidth).fill(undefined));
         this.seed = '111';
         const seedDestination = document.querySelector('#seed');
         if (seedDestination) {
             seedDestination.innerHTML = `Seed: ${this.seed}`;
         }
         const {baseDungeon, dungeon, colorizedDungeon, lightColors, monsters} = makeDungeon(
-            WIDTH,
-            HEIGHT,
+            dungeonWidth,
+            dungeonHeight,
             this.seed
         );
         this.dungeon = baseDungeon;
         this.lightColors = lightColors;
-        let foundASpotForThePlayer = false;
+        debugger;
+        const playerSpot = randomMatchingLocation({
+            dungeon: baseDungeon,
+            dungeonTypes: [CELL_TYPES.FLOOR],
+            liquidTypes: [],
+            terrainTypes: [],
+        });
+        playerSpot &&
+            this.player.addComponent({type: Position, x: playerSpot.col, y: playerSpot.row});
         this.map.create((col, row, contents) => {
             const tile = this.world.createEntityTypesafe({
                 c: [
@@ -253,12 +285,8 @@ export default class Game {
                     {type: Tile, flags: dungeon[row][col].flags},
                 ],
             });
-            if (DEBUG_FLAGS.OMNISCIENT) {
+            if (this.DEBUG_FLAGS.OMNISCIENT) {
                 tile.addComponent({type: Visible});
-            }
-            if (!dungeon[row][col].flags?.OBSTRUCTS_PASSIBILITY && !foundASpotForThePlayer) {
-                this.player.addComponent({type: Position, x: col, y: row});
-                foundASpotForThePlayer = true;
             }
             let light;
             if (lightColors[row][col]) {

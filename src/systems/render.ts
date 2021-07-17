@@ -1,6 +1,7 @@
 import {Query, System} from 'ape-ecs';
 import {Color as ROTColor, Display} from 'rot-js';
 import {Creature, DancingColor, Light, Memory, Position, Renderable, Visible} from '../components';
+import {DEBUG_FLAGS} from '../constants';
 
 const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
     if (a !== undefined) {
@@ -17,7 +18,10 @@ class RenderSystem extends System {
     init(display: Display) {
         this.mainRenderQuery = this.createQuery()
             .fromAll(Renderable, Position, Visible)
-            .not(Light, Memory, Creature);
+            .not(Light, Creature);
+        if (!DEBUG_FLAGS.OMNISCIENT) {
+            this.mainRenderQuery = this.mainRenderQuery.not(Memory);
+        }
         this.display = display;
     }
 

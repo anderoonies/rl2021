@@ -15,7 +15,7 @@ export default class CreatureRender extends System {
     display: Display;
 
     init(display: Display) {
-        this.query = this.world.createQuery().fromAll(Creature);
+        this.query = this.world.createQuery().fromAll(Creature, Position);
         this.display = display;
     }
 
@@ -25,23 +25,13 @@ export default class CreatureRender extends System {
             const renderable = entity.getOne(Renderable);
             const existingData = this.display._data[`${position.x},${position.y}`];
             let bg;
-            if (existingData) {
-                const [_, __, ___, ____, bg] = existingData;
-            } else {
-                bg = toRGBA([
-                    renderable.bg.r,
-                    renderable.bg.g,
-                    renderable.bg.b,
-                    renderable.bg.alpha,
-                ]);
-            }
 
-            this.display.draw(
+            this.display.drawOver(
                 position.x,
                 position.y,
                 renderable.char,
                 toRGBA([renderable.fg.r, renderable.fg.g, renderable.fg.b, renderable.fg.alpha]),
-                bg
+                null
             );
         }
     }

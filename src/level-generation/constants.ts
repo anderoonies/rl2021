@@ -31,9 +31,12 @@ export const DEBUG_FLAGS = {
     SHOW_CA: false,
     FIT: true,
     NO_MONSTERS: false,
+    SHOW_ARC_COUNT: true,
 } as const;
 
-export const WIDTH = DEBUG_FLAGS.FIT
+export const WIDTH = DEBUG_FLAGS.SHOW_ARC_COUNT
+    ? 40
+    : DEBUG_FLAGS.FIT
     ? Math.max(
           2 *
               Math.round(
@@ -44,7 +47,11 @@ export const WIDTH = DEBUG_FLAGS.FIT
           40
       )
     : 80;
-export const HEIGHT = DEBUG_FLAGS.FIT ? Math.max(20, 2 * Math.round(WIDTH / 4 / 2)) : 32;
+export const HEIGHT = DEBUG_FLAGS.SHOW_ARC_COUNT
+    ? 20
+    : DEBUG_FLAGS.FIT
+    ? Math.max(20, 2 * Math.round(WIDTH / 4 / 2))
+    : 32;
 
 // rooms
 export const ROOM_MIN_WIDTH = 4;

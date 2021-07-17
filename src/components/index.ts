@@ -48,3 +48,4 @@ export class Map extends Component({
 
 export class Creature extends Component({}) {}
 export class PlayerControlled extends Component({}) {}
+export class DebugPassableArcCounter extends Component<{count: number}>({count: 0}) {}

@@ -1403,7 +1403,10 @@ const accreteRooms = (nRooms: number, dungeon?: Dungeon) => {
     dungeon.DUNGEON = addLoops(dungeon.DUNGEON);
     // add NESW walls first to give torches a place to attach
     dungeon.DUNGEON = finishWalls(dungeon.DUNGEON, false);
-    dungeon = addLakes(dungeon);
+    if (!DEBUG_FLAGS.SHOW_ARC_COUNT) {
+        dungeon = addLakes(dungeon);
+    }
+
     dungeon.TERRAIN = mergeGrids(
         runAutogenerators(dungeon),
         dungeon.TERRAIN,
@@ -1412,6 +1415,7 @@ const accreteRooms = (nRooms: number, dungeon?: Dungeon) => {
             return mostSpecific === 0 ? -1 : mostSpecific;
         }
     );
+
     dungeon.DUNGEON = finishWalls(dungeon.DUNGEON, true);
 
     const layers = [
@@ -1453,10 +1457,10 @@ const makeDungeon = (width: number, height: number, seed?: string) => {
 //      Three means it is the center of a T-intersection or something similar.
 //      Four means it is in the intersection of two hallways.
 //      Five or more means there is a bug.
-const passableArcCount = (dungeon: Dungeon, x: number, y: number): number => {
+export const impassableArcCount = (dungeon: Dungeon, x: number, y: number): number => {
     let arcCount, dir, oldX, oldY, newX, newY;
     arcCount = 0;
-    for (dir = 0; dir < 4; dir++) {
+    for (dir = 0; dir < 8; dir++) {
         oldX = x + DIR_TO_TRANSFORM[(dir + 7) % 8].x;
         oldY = y + DIR_TO_TRANSFORM[(dir + 7) % 8].y;
         newX = x + DIR_TO_TRANSFORM[dir].x;
@@ -1602,10 +1606,7 @@ const spawnHorde = (
                     debugger;
                     return null;
                 }
-            } while (
-                !location
-                 || passableArcCount(dungeon, bestX, bestY) > 1
-            );
+            } while (!location || impassableArcCount(dungeon, bestX, bestY) > 1);
 
             x = bestX;
             y = bestY;

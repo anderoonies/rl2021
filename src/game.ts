@@ -8,6 +8,7 @@ import {
     ActionMove,
     Creature,
     DancingColor,
+    DebugPassableArcCounter,
     Light,
     Map,
     PlayerControlled,
@@ -16,14 +17,16 @@ import {
     Tile,
     Visible,
 } from './components';
+import {DEBUG_FLAGS} from './constants';
 import {HEIGHT, WIDTH} from './level-generation/constants';
-import {makeDungeon} from './level-generation/generator';
-import {Grid, RGBColor} from './level-generation/types';
+import {makeDungeon, impassableArcCount, coordinatesAreInMap} from './level-generation/generator';
+import {Dungeon, Grid, RGBColor} from './level-generation/types';
 import ActionSystem from './systems/action';
 import LightSystem from './systems/light';
 import MemoryRenderSystem from './systems/memoryrender';
 import CreatureRender from './systems/playerrender';
 import RenderSystem from './systems/render';
+import DebugArcCountRender from './systems/debugarccountrender';
 
 const options: Partial<DisplayOptions> = {
     // layout: "tile",
@@ -47,6 +50,7 @@ export default class Game {
     seed: string;
     map: Uniform;
     fov: FOV;
+    dungeon: Dungeon;
     lighting: ROT.Lighting;
     lightColors: Grid<RGBColor>;
 
@@ -101,9 +105,12 @@ export default class Game {
             this.lightColors,
         ]);
         this.world.registerSystem('render', RenderSystem, [this.display]);
-        this.world.registerSystem('render', MemoryRenderSystem, [this.display]);
+        if (!DEBUG_FLAGS.OMNISCIENT) {
+            this.world.registerSystem('render', MemoryRenderSystem, [this.display]);
+        }
         this.world.registerSystem('light', LightSystem, [this.display]);
         this.world.registerSystem('postrender', CreatureRender, [this.display]);
+        this.world.registerSystem('postrender', DebugArcCountRender, [this.display]);
 
         const playerPosition = player.getOne(Position);
         this.fov.compute(
@@ -120,6 +127,28 @@ export default class Game {
         );
 
         this.playerQuery = this.world.createQuery().fromAll('PlayerControlled');
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT &&
+            window.addEventListener('mousemove', e => {
+                const [x, y] = this.display.eventToPosition(e);
+                if ((x !== lastMouseX || y !== lastMouseY) && coordinatesAreInMap(y, x)) {
+                    const arcCount = impassableArcCount(this.dungeon, x, y);
+                    console.log(`hovering ${x},${y}`);
+                    const t = tiles[y][x].tile.addComponent({
+                        type: DebugPassableArcCounter,
+                        count: arcCount,
+                    });
+
+                    for (const counter of tiles[lastMouseY][lastMouseX].tile.getComponents(
+                        DebugPassableArcCounter
+                    )) {
+                        tiles[lastMouseY][lastMouseX].tile.removeComponent(counter);
+                    }
+                    lastMouseX = x;
+                    lastMouseY = y;
+                }
+            });
         window.addEventListener('keydown', e => {
             const entities = this.playerQuery.refresh().execute();
             for (const player of entities) {
@@ -189,11 +218,12 @@ export default class Game {
         if (seedDestination) {
             seedDestination.innerHTML = `Seed: ${this.seed}`;
         }
-        const {dungeon, colorizedDungeon, lightColors, monsters} = makeDungeon(
+        const {baseDungeon, dungeon, colorizedDungeon, lightColors, monsters} = makeDungeon(
             WIDTH,
             HEIGHT,
             this.seed
         );
+        this.dungeon = baseDungeon;
         this.lightColors = lightColors;
         let foundASpotForThePlayer = false;
         this.map.create((col, row, contents) => {
@@ -223,6 +253,9 @@ export default class Game {
                     {type: Tile, flags: dungeon[row][col].flags},
                 ],
             });
+            if (DEBUG_FLAGS.OMNISCIENT) {
+                tile.addComponent({type: Visible});
+            }
             if (!dungeon[row][col].flags?.OBSTRUCTS_PASSIBILITY && !foundASpotForThePlayer) {
                 this.player.addComponent({type: Position, x: col, y: row});
                 foundASpotForThePlayer = true;

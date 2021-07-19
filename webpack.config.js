@@ -1,7 +1,10 @@
 const path = require('path');
 
 module.exports = {
-    entry: './src/index.ts',
+    entry: {
+        final: './src/entries/final.ts',
+        debugArcCount: './src/entries/debugarccount.ts',
+    },
     module: {
         rules: [
             {
@@ -16,7 +19,7 @@ module.exports = {
         symlinks: true,
     },
     output: {
-        filename: 'index.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, 'dist'),
     },
     devtool: 'cheap-module-source-map',

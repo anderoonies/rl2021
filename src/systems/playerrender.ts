@@ -1,6 +1,6 @@
 import {Query, System} from 'ape-ecs';
 import {Display} from 'rot-js';
-import {Character, Position, Renderable} from '../components';
+import {Creature, Position, Renderable} from '../components';
 
 const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
     if (a !== undefined) {
@@ -10,12 +10,12 @@ const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
     }
 };
 
-export default class PlayerRender extends System {
+export default class CreatureRender extends System {
     query: Query;
     display: Display;
 
     init(display: Display) {
-        this.query = this.world.createQuery().fromAll(Character);
+        this.query = this.world.createQuery().fromAll(Creature, Position);
         this.display = display;
     }
 
@@ -23,12 +23,15 @@ export default class PlayerRender extends System {
         for (const entity of this.query.refresh().execute()) {
             const position = entity.getOne(Position);
             const renderable = entity.getOne(Renderable);
-            this.display.draw(
+            const existingData = this.display._data[`${position.x},${position.y}`];
+            let bg;
+
+            this.display.drawOver(
                 position.x,
                 position.y,
                 renderable.char,
                 toRGBA([renderable.fg.r, renderable.fg.g, renderable.fg.b, renderable.fg.alpha]),
-                toRGBA([renderable.bg.r, renderable.bg.g, renderable.bg.b, renderable.bg.alpha])
+                null
             );
         }
     }

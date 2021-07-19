@@ -2,8 +2,14 @@ import {
     CellColor,
     CellConstant,
     CellType,
+    FeatureType,
+    Horde,
+    LightSource,
+    Monster,
+    MonsterType,
     PerlinColorDefinition,
     RandomColorDefiniton,
+    RGBColor,
 } from './types';
 
 // global
@@ -23,10 +29,18 @@ export const DEBUG_FLAGS = {
     ROOMS_ONLY: false,
     SHOW_ACCRETION: false,
     SHOW_CA: false,
+    FIT: true,
+    NO_MONSTERS: false,
 } as const;
 
-export const WIDTH = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 80;
-export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 32;
+export let WIDTH = 50;
+export let HEIGHT = 20;
+export const setWidth = (w: number) => {
+    WIDTH = w;
+};
+export const setHeight = (h: number) => {
+    HEIGHT = h;
+};
 
 // rooms
 export const ROOM_MIN_WIDTH = 4;
@@ -43,6 +57,14 @@ export const ROOM_TYPES = {
     CIRCLE: 1,
     SYMMETRICAL_CROSS: 2,
 } as const;
+
+export enum CELL_FLAGS {
+    OBSTRUCTS_PASSIBILITY = 1,
+    OBSTRUCTS_VISION = 1 << 1,
+    YIELD_LETTER = 1 << 2,
+    HAS_MONSTER = 1 << 3,
+    NEVER_PASSABLE = 1 << 4,
+}
 
 export const CELL_TYPES = {
     DEBUG: -10,
@@ -82,11 +104,7 @@ export const PASSIBLE_TYPES = [
     CELL_TYPES.GRASS,
 ];
 
-export const IMPASSIBLE_TYPES = [
-    CELL_TYPES.ROCK,
-    CELL_TYPES.WALL,
-    CELL_TYPES.LAKE,
-];
+export const IMPASSIBLE_TYPES = [CELL_TYPES.ROCK, CELL_TYPES.WALL, CELL_TYPES.LAKE];
 
 export const IMPASSIBLE = (cell: CellConstant) => {
     return IMPASSIBLE_TYPES.indexOf(cell) > -1;
@@ -175,92 +193,83 @@ export const CELLS: Record<CellConstant, CellType> = {
         letter: ',',
         color: COLORS.EMPTY,
         priority: -1,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EMPTY]: {
         type: 'EMPTY',
         color: COLORS.EMPTY,
         letter: ' ',
         priority: -1,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.FLOOR]: {
         type: 'FLOOR',
         color: COLORS.FLOOR,
         letter: ' ',
         priority: 9,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.WALL]: {
         type: 'WALL',
         color: COLORS.WALL,
         letter: '#',
         priority: 18,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags:
+            CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
+            CELL_FLAGS.OBSTRUCTS_VISION |
+            CELL_FLAGS.NEVER_PASSABLE,
     },
     [CELL_TYPES.ROCK]: {
         type: 'ROCK',
         color: COLORS.ROCK,
         letter: '#',
         priority: 15,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags:
+            CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
+            CELL_FLAGS.OBSTRUCTS_VISION |
+            CELL_FLAGS.NEVER_PASSABLE,
     },
     [CELL_TYPES.DOOR]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '+',
         priority: 16,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.EXIT_NORTH]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '^',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EXIT_EAST]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '>',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EXIT_SOUTH]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: 'V',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.EXIT_WEST]: {
         type: 'DOOR',
         color: COLORS.DOOR,
         letter: '<',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.LAKE]: {
         type: 'LAKE',
         color: COLORS.LAKE,
         letter: '~',
         priority: 20,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_PASSIBILITY,
         // GLOWING WATER!!!!
         // glowLight: {
         //     // {1000, 1000, 1},		50,		false}
@@ -288,77 +297,56 @@ export const CELLS: Record<CellConstant, CellType> = {
         color: COLORS.SHALLOW_WATER,
         letter: '~',
         priority: 19,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.GRANITE]: {
         type: 'GRANITE',
         color: COLORS.GRANITE,
         letter: 'g',
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_PASSIBILITY | CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.LUMINESCENT_FUNGUS]: {
         type: 'luminescent_fungus',
         color: COLORS.LUMINESCENT_FUNGUS,
         letter: 'f',
         priority: 0,
-        flags: {},
+        flags: 0,
     },
     [CELL_TYPES.GRASS]: {
         type: 'GRASS',
         color: COLORS.GRASS,
         letter: '"',
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.DEAD_GRASS]: {
         type: 'DEAD_GRASS',
         color: COLORS.DEAD_GRASS,
         letter: '"',
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.DEAD_FOLIAGE]: {
         type: 'DEAD_FOLIAGE',
         color: COLORS.DEAD_GRASS,
         letter: String.fromCharCode(0x03b3),
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.FOLIAGE]: {
         type: 'FOLIAGE',
         color: COLORS.GRASS,
         letter: String.fromCharCode(0x03b3),
         priority: 10,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.RUBBLE]: {
         type: 'RUBBLE',
         color: COLORS.RUBBLE,
         letter: ',',
         priority: 11,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-        },
+        flags: 0,
     },
     [CELL_TYPES.TORCH_WALL]: {
         type: 'TORCH_WALL',
@@ -385,21 +373,14 @@ export const CELLS: Record<CellConstant, CellType> = {
                 },
             },
         },
-        flags: {
-            OBSTRUCTS_PASSIBILITY: true,
-            OBSTRUCTS_VISION: true,
-        },
+        flags: CELL_FLAGS.NEVER_PASSABLE,
     },
     [CELL_TYPES.HAZE]: {
         type: 'HAZE',
         color: COLORS.HAZE,
         letter: ' ',
         priority: 0,
-        flags: {
-            OBSTRUCTS_PASSIBILITY: false,
-            OBSTRUCTS_VISION: false,
-            YIELD_LETTER: true,
-        },
+        flags: CELL_FLAGS.YIELD_LETTER,
     },
     [CELL_TYPES.LIGHT_POOL]: {
         type: 'LIGHT_POOL',
@@ -407,9 +388,7 @@ export const CELLS: Record<CellConstant, CellType> = {
         color: COLORS.EMPTY,
         letter: 'x',
         priority: 0,
-        flags: {
-            YIELD_LETTER: true,
-        },
+        flags: CELL_FLAGS.YIELD_LETTER,
         glowLight: {
             // {1000, 1000, 1},		50,		false}
             minRadius: 200,
@@ -866,13 +845,13 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
             baseColor: {
                 r: 119,
                 g: 116,
-                b: 99,
+                b: 70,
             },
             variance: {
-                r: 20,
-                g: 0,
-                b: 20,
-                overall: 20,
+                r: 40,
+                g: 10,
+                b: 40,
+                overall: 40,
             },
         },
         fg: {
@@ -1090,3 +1069,148 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
 } as const;
 
 export const PERLIN_PERIOD = 4;
+
+// Monsters D:<
+export const HORDE_FLAGS: Record<string, (h?: Horde) => boolean> = {
+    TODO: () => {
+        return true;
+    },
+};
+
+export enum MONSTER_TYPES {
+    RAT,
+    KOBOLD,
+    JACKAL,
+    EEL,
+}
+
+export enum BEHAVIOR_FLAGS {
+    TODO,
+}
+
+export enum ABILITY_FLAGS {
+    TODO,
+}
+
+export const MONSTER_CATALOG: Record<MonsterType, Monster> = {
+    [MONSTER_TYPES.RAT]: {
+        name: 'ratty spaghetti',
+        ch: 'r',
+        color: {r: 100, g: 100, b: 100, alpha: 1},
+        // this rat is freaking huge
+        HP: 100,
+        def: 100,
+        acc: 100,
+        damage: [1],
+        // no idea what this does yet
+        reg: 1,
+        move: 1,
+        attack: 100,
+        // this rat bleeds rubble
+        blood: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
+        // yep
+        isLarge: true,
+    },
+    [MONSTER_TYPES.KOBOLD]: {
+        name: 'kobold',
+        ch: 'k',
+        color: {r: 255, g: 0, b: 0, alpha: 1},
+        // this rat is freaking huge
+        HP: 100,
+        def: 100,
+        acc: 100,
+        damage: [1],
+        // no idea what this does yet
+        reg: 1,
+        move: 1,
+        attack: 100,
+        blood: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
+        // yep
+        isLarge: true,
+    },
+    [MONSTER_TYPES.JACKAL]: {
+        name: 'jackal seinfeld',
+        ch: 'j',
+        color: {r: 0, g: 255, b: 0, alpha: 1},
+        HP: 100,
+        def: 100,
+        acc: 100,
+        damage: [1],
+        // no idea what this does yet
+        reg: 1,
+        move: 1,
+        attack: 100,
+        // this rat bleeds rubble
+        blood: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
+        // yep
+        isLarge: true,
+    },
+    [MONSTER_TYPES.RAT]: {
+        name: 'ratty spaghetti',
+        ch: 'r',
+        color: {r: 100, g: 100, b: 100, alpha: 1},
+        // this rat is freaking huge
+        HP: 100,
+        def: 100,
+        acc: 100,
+        damage: [1],
+        reg: 1,
+        move: 1,
+        attack: 100,
+        blood: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
+        isLarge: true,
+    },
+    [MONSTER_TYPES.EEL]: {
+        name: 'eelaine benez',
+        ch: 'e',
+        color: {r: 200, g: 0, b: 111, alpha: 1},
+        HP: 100,
+        def: 100,
+        acc: 100,
+        damage: [1],
+        reg: 1,
+        move: 1,
+        attack: 100,
+        blood: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
+        isLarge: true,
+    },
+};
+export const HORDE_CATALOG: Array<Horde> = [
+    {
+        leaderType: MONSTER_TYPES.RAT,
+        numberOfMembers: 0,
+        memberType: [MONSTER_TYPES.RAT],
+        memberCount: [0],
+        minLevel: 1,
+        maxLevel: 5,
+        frequency: 150,
+    },
+    {
+        leaderType: MONSTER_TYPES.KOBOLD,
+        numberOfMembers: 0,
+        memberType: [MONSTER_TYPES.KOBOLD],
+        memberCount: [0],
+        minLevel: 1,
+        maxLevel: 6,
+        frequency: 150,
+    },
+    {
+        leaderType: MONSTER_TYPES.JACKAL,
+        numberOfMembers: 0,
+        memberType: [MONSTER_TYPES.JACKAL],
+        memberCount: [1, 3, 1],
+        minLevel: 1,
+        maxLevel: 6,
+        frequency: 50,
+    },
+    {
+        leaderType: MONSTER_TYPES.EEL,
+        numberOfMembers: 0,
+        memberType: [MONSTER_TYPES.EEL],
+        memberCount: [0],
+        minLevel: 1,
+        maxLevel: 6,
+        frequency: 50,
+        spawnsIn: CELL_TYPES.LAKE,
+    },
+];

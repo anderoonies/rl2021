@@ -19,7 +19,7 @@ export const gridFromDimensions = <T>(height: number, width: number, value: T): 
     });
 };
 
-export const coordinatesAreInMap = (row: number, col: number, dungeon?: Dungeon) => {
+export const coordinatesAreInMap = (row: number, col: number, dungeon?: Grid) => {
     if (dungeon === undefined) {
         return row >= 0 && row < HEIGHT && col >= 0 && col < WIDTH;
     } else {

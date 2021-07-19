@@ -33,18 +33,8 @@ export const DEBUG_FLAGS = {
     NO_MONSTERS: false,
 } as const;
 
-export let WIDTH = DEBUG_FLAGS.FIT
-    ? Math.max(
-          2 *
-              Math.round(
-                  Math.floor(
-                      document.getElementById('rot-container').getBoundingClientRect().width / 20
-                  ) / 2
-              ),
-          40
-      )
-    : 80;
-export let HEIGHT = DEBUG_FLAGS.FIT ? Math.max(20, 2 * Math.round(WIDTH / 4 / 2)) : 32;
+export let WIDTH = 80;
+export let HEIGHT = 32;
 export const setWidth = (w: number) => {
     WIDTH = w;
 };
@@ -383,7 +373,7 @@ export const CELLS: Record<CellConstant, CellType> = {
                 },
             },
         },
-        flags: 0,
+        flags: CELL_FLAGS.NEVER_PASSABLE,
     },
     [CELL_TYPES.HAZE]: {
         type: 'HAZE',
@@ -855,13 +845,13 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
             baseColor: {
                 r: 119,
                 g: 116,
-                b: 99,
+                b: 70,
             },
             variance: {
-                r: 20,
-                g: 0,
-                b: 20,
-                overall: 20,
+                r: 40,
+                g: 10,
+                b: 40,
+                overall: 40,
             },
         },
         fg: {

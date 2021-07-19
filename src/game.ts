@@ -237,7 +237,7 @@ export default class Game {
         const tiles = new Array(dungeonHeight)
             .fill(undefined)
             .map(() => new Array(dungeonWidth).fill(undefined));
-        this.seed = '111';
+        this.seed = '123';
         const seedDestination = document.querySelector('#seed');
         if (seedDestination) {
             seedDestination.innerHTML = `Seed: ${this.seed}`;

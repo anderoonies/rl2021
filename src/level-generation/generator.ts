@@ -1052,9 +1052,15 @@ export const randomMatchingLocation = ({
             : true;
         terrainRequirementSatisfied = terrainTypes?.length
             ? terrainTypes.every(type =>
-                  type === -1 ? true : cellHasTerrainFlag(dungeon.TERRAIN[row][col], type)
+                  type > -1
+                      ? cellHasTerrainFlag(dungeon.TERRAIN[row][col], type)
+                      : !(
+                            dungeon.FLAGS[row][col] & CELL_FLAGS.OBSTRUCTS_PASSIBILITY ||
+                            CELLS[dungeon.DUNGEON[row][col]].flags &
+                                CELL_FLAGS.OBSTRUCTS_PASSIBILITY
+                        )
               )
-            : true;
+            : !(dungeon.FLAGS[row][col] & CELL_FLAGS.OBSTRUCTS_PASSIBILITY);
         forbiddenFlagsSatisfied =
             (dungeon.FLAGS[row][col] & (forbiddenFlags | CELL_FLAGS.NEVER_PASSABLE)) === 0;
     } while (
@@ -1599,8 +1605,18 @@ const spawnHorde = (
                     HORDE_CATALOG[hordeID].spawnsIn &&
                     !cellHasTerrainFlag(dungeon.TERRAIN[y][x], HORDE_CATALOG[hordeID].spawnsIn)
                 ) {
-                    // make sure the horde spawns on its appropriate terrain
-                    // (like eels in lakes)
+                    // if the horde needs a specific kind of cell and it isnt there, try again
+                    tryAgain = true;
+                }
+                if (
+                    dungeon.FLAGS[y][x] & CELL_FLAGS.OBSTRUCTS_PASSIBILITY &&
+                    !(
+                        HORDE_CATALOG[hordeID].spawnsIn &&
+                        cellHasTerrainFlag(dungeon.TERRAIN[y][x], HORDE_CATALOG[hordeID].spawnsIn)
+                    )
+                ) {
+                    // if the cell is traditionally a bad place for a monster to spawn, and the
+                    // monster doesn't specifically ask for that terrain, try again
                     tryAgain = true;
                 }
             }
@@ -1618,6 +1634,7 @@ const spawnHorde = (
         let location;
         // do {
         do {
+            hordeID = chooseHordeType(depth, 0, forbiddenHordeFlags, []);
             location = randomMatchingLocation({
                 dungeon,
                 dungeonTypes: [],
@@ -1631,7 +1648,6 @@ const spawnHorde = (
                 console.warn('no horde spawned :9 ');
                 return null;
             }
-            hordeID = chooseHordeType(depth, 0, forbiddenHordeFlags, []);
             if (hordeID < 0) {
                 console.warn('no horde spawned :9 ');
                 return null;

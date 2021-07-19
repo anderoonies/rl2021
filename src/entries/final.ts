@@ -1,3 +1,3 @@
-import {launch} from './index'
+import {launch} from './index';
 
-launch({});
+launch('final', {});

@@ -33,8 +33,8 @@ export const DEBUG_FLAGS = {
     NO_MONSTERS: false,
 } as const;
 
-export let WIDTH = 80;
-export let HEIGHT = 32;
+export let WIDTH = 50;
+export let HEIGHT = 20;
 export const setWidth = (w: number) => {
     WIDTH = w;
 };

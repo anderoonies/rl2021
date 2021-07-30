@@ -28,6 +28,7 @@ import {
     VERTICAL_CORRIDOR_MIN_LENGTH,
     WIDTH as DEFAULT_WIDTH,
     WREATH_FOR_LIQUID,
+    WREATH_WIDTHS,
 } from './constants';
 import {lightDungeon} from './light';
 import {
@@ -855,15 +856,17 @@ const createWreath = ({
     wreathLiquid,
     wreathWidth,
     dungeon,
+    terrain,
     deepLiquidValue,
 }: {
     wreathLiquid: CellConstant;
     wreathWidth: number;
     dungeon: Grid<CellConstant>;
+    terrain: Grid<CellConstant>;
     deepLiquidValue: CellConstant;
 }) => {
-    debugger;
-    let hyperspace = cloneDeep(dungeon);
+    let wreathedDungeon = cloneDeep(dungeon);
+    let wreathedTerrain = cloneDeep(terrain);
     for (let row = 0; row < HEIGHT; row++) {
         for (let col = 0; col < WIDTH; col++) {
             if (dungeon[row][col] === deepLiquidValue) {
@@ -873,16 +876,23 @@ const createWreath = ({
                             coordinatesAreInMap(i, j) &&
                             dungeon[i][j] !== deepLiquidValue &&
                             (row - i) ** 2 + (col - j) ** 2 <= wreathWidth ** 2 &&
-                            CELLS[hyperspace[i][j]].priority < CELLS[wreathLiquid].priority
+                            CELLS[wreathedDungeon[i][j]].priority < CELLS[wreathLiquid].priority
                         ) {
-                            hyperspace[i][j] = wreathLiquid;
+                            if (i === 5 && j === 25) {
+                                debugger;
+                            }
+                            wreathedDungeon[i][j] = wreathLiquid;
+                            wreathedTerrain[i][j] = wreathLiquid;
                         }
                     }
                 }
             }
         }
     }
-    return hyperspace;
+    return {
+        dungeon: wreathedDungeon,
+        terrain: wreathedTerrain,
+    };
 };
 
 const addLakes = (dungeon: Dungeon) => {
@@ -892,8 +902,6 @@ const addLakes = (dungeon: Dungeon) => {
     let lakeMinY, lakeMinX, lakeHeight, lakeWidth;
     let proposedLakeX, proposedLakeY;
     let blob, minX, minY, maxX, maxY;
-    // TODO: how do you get the last thing in an enum?
-    const liquidType = randomRange(0, LIQUID_TYPES.CHASM) as LIQUID_TYPES;
 
     for (
         let lakeMaxHeight = 15, lakeMaxWidth = 30;
@@ -922,8 +930,12 @@ const addLakes = (dungeon: Dungeon) => {
                     x: proposedLakeX,
                 })
             ) {
+                // TODO: how do you get the last thing in an enum?
+                const liquidType = randomRange(0, LIQUID_TYPES.CHASM + 1) as LIQUID_TYPES;
                 const liquidCellType = LIQUID_CELLS[liquidType];
                 const wreathCellType = LIQUID_CELLS[WREATH_FOR_LIQUID[liquidType]];
+                // say "wreathWidth" five times fast
+                const wreathWidth = WREATH_WIDTHS[WREATH_FOR_LIQUID[liquidType]];
                 dungeon.DUNGEON = drawContinuousShapeOnGrid(
                     blob,
                     proposedLakeY,
@@ -943,19 +955,22 @@ const addLakes = (dungeon: Dungeon) => {
                     }
                 );
                 // TODO; one pass. get the wreath out without merging into hyperspace
-                if (wreathCellType !== CELL_TYPES.EMPTY) {
-                    dungeon.DUNGEON = createWreath({
+                if (false || wreathCellType !== CELL_TYPES.EMPTY) {
+                    const {dungeon: wreathedDungeon, terrain: wreathedTerrain} = createWreath({
                         wreathLiquid: wreathCellType,
-                        wreathWidth: 2,
+                        wreathWidth,
                         dungeon: dungeon.DUNGEON,
+                        terrain: dungeon.TERRAIN,
                         deepLiquidValue: liquidCellType,
                     });
-                    dungeon.TERRAIN = createWreath({
-                        wreathLiquid: wreathCellType,
-                        wreathWidth: 2,
-                        dungeon: dungeon.TERRAIN,
-                        deepLiquidValue: liquidCellType,
-                    });
+                    dungeon.DUNGEON = wreathedDungeon;
+                    dungeon.TERRAIN = wreathedTerrain;
+                    // dungeon.TERRAIN = createWreath({
+                    //     wreathLiquid: wreathCellType,
+                    //     wreathWidth,
+                    //     dungeon: dungeon.TERRAIN,
+                    //     deepLiquidValue: liquidCellType,
+                    // });
                 }
                 break;
             }
@@ -1273,21 +1288,18 @@ const runAutogenerators = (dungeon: Dungeon, layer = 0) => {
 };
 
 const cellObstructsVision = (row: number, col: number, dungeon: Grid<CellConstant>) => {
-    return CELLS[dungeon[row][col]].flags & CELL_FLAGS.OBSTRUCTS_VISION;
+    return (CELLS[dungeon[row][col]].flags & CELL_FLAGS.OBSTRUCTS_VISION) > 0;
 };
 
 const cellObstructsPassibility = (row: number, col: number, dungeon: Grid<CellConstant>) => {
-    return CELLS[dungeon[row][col]].flags & CELL_FLAGS.OBSTRUCTS_PASSIBILITY;
+    return (CELLS[dungeon[row][col]].flags & CELL_FLAGS.OBSTRUCTS_PASSIBILITY) > 0;
 };
 
 const finishWalls = (dungeon: Grid<CellConstant>, diagonals: boolean) => {
-    let foundExposure = false;
+    let foundExposure = true;
     let x1, y1;
     for (let row = 0; row < HEIGHT; row++) {
         for (let col = 0; col < WIDTH; col++) {
-            if (diagonals) {
-                debugger;
-            }
             if (dungeon[row][col] === CELL_TYPES.ROCK) {
                 foundExposure = false;
                 for (

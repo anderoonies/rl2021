@@ -1,15 +1,9 @@
 import {
-    CellColor,
     CellConstant,
-    CellType,
-    FeatureType,
-    Horde,
-    LightSource,
-    Monster,
+    CellType, Horde, Monster,
     MonsterType,
     PerlinColorDefinition,
-    RandomColorDefiniton,
-    RGBColor,
+    RandomColorDefiniton
 } from './types';
 
 // global
@@ -105,6 +99,11 @@ export enum WREATH_TYPES {
     NONE = CELL_TYPES.EMPTY,
     CHASM_EDGE = CELL_TYPES.CHASM_EDGE,
 }
+
+export const WREATH_WIDTHS: Record<WREATH_TYPES, number> = {
+    [WREATH_TYPES.SHALLOW_WATER]: 2,
+    [WREATH_TYPES.CHASM_EDGE]: 1,
+} as const;
 
 export const LIQUID_CELLS: Record<LIQUID_TYPES | WREATH_TYPES, CellConstant> = {
     [LIQUID_TYPES.WATER]: CELL_TYPES.LAKE,
@@ -217,6 +216,8 @@ export const COLORS: Record<
     // todo
     LUMINESCENT_FUNGUS: {bg: 'green', fg: 'yellow'},
     EMPTY: {bg: 'rgba(0,0,0,0)', fg: 'rgba(0,0,0,0)'},
+    CHASM: {bg: 'rgba(0,0,0,0)', fg: 'rgba(0,0,0,0)'},
+    CHASM_EDGE: {bg: 'rgba(0,0,0,0)', fg: 'rgba(0,0,0,0)'},
 };
 
 // cell types
@@ -238,7 +239,8 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
     [CELL_TYPES.FLOOR]: {
         type: 'FLOOR',
         color: COLORS.FLOOR,
-        letter: String.fromCharCode(0x00b7),
+        letter: String.fromCodePoint(0x2E31),
+        // letter: String.fromCodePoint(0x2E),
         priority: 9,
         flags: 0,
     },
@@ -256,7 +258,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         type: 'ROCK',
         color: COLORS.ROCK,
         letter: '#',
-        priority: 15,
+        priority: 18,
         flags:
             CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
             CELL_FLAGS.OBSTRUCTS_VISION |
@@ -336,7 +338,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         type: 'GRANITE',
         color: COLORS.GRANITE,
         letter: 'g',
-        priority: 10,
+        priority: 18,
         flags: CELL_FLAGS.OBSTRUCTS_PASSIBILITY | CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.LUMINESCENT_FUNGUS]: {
@@ -471,6 +473,20 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
                 },
             },
         },
+    },
+    [CELL_TYPES.CHASM]: {
+        type: 'CHASM',
+        color: COLORS.CHASM,
+        letter: String.fromCodePoint(0x2e2c),
+        priority: 0,
+        flags: CELL_FLAGS.NEVER_PASSABLE | CELL_FLAGS.OBSTRUCTS_PASSIBILITY,
+    },
+    [CELL_TYPES.CHASM_EDGE]: {
+        type: 'CHASM',
+        color: COLORS.CHASM_EDGE,
+        letter: String.fromCodePoint(0x2E31),
+        priority: 16,
+        flags: 0,
     },
 };
 
@@ -877,15 +893,15 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
     [CELL_TYPES.FLOOR]: {
         bg: {
             baseColor: {
-                r: 10,
-                g: 10,
-                b: 10,
+                r: 20,
+                g: 20,
+                b: 20,
             },
             variance: {
-                r: 0,
-                g: 0,
-                b: 0,
-                overall: 4,
+                r: 5,
+                g: 5,
+                b: 5,
+                overall: 0,
             },
         },
         fg: {
@@ -1032,14 +1048,14 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 10,
-                g: 10,
-                b: 10,
+                r: 20,
+                g: 20,
+                b: 20,
             },
             variance: {
-                r: 0,
-                g: 0,
-                b: 0,
+                r: 5,
+                g: 5,
+                b: 5,
                 overall: 0,
             },
         },
@@ -1060,14 +1076,14 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 10,
-                g: 10,
-                b: 10,
+                r: 20,
+                g: 20,
+                b: 20,
             },
             variance: {
-                r: 0,
-                g: 0,
-                b: 0,
+                r: 5,
+                g: 5,
+                b: 5,
                 overall: 0,
             },
         },
@@ -1088,9 +1104,95 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 10,
+                r: 20,
+                g: 20,
+                b: 20,
+            },
+            variance: {
+                r: 5,
+                g: 5,
+                b: 5,
+                overall: 0,
+            },
+        },
+    },
+    [CELL_TYPES.DEAD_FOLIAGE]: {
+        fg: {
+            baseColor: {
+                r: 51,
+                g: 33,
+                b: 24,
+            },
+            variance: {
+                r: 20,
                 g: 10,
-                b: 10,
+                b: 5,
+                overall: 20,
+            },
+        },
+        bg: {
+            baseColor: {
+                r: 20,
+                g: 20,
+                b: 20,
+            },
+            variance: {
+                r: 5,
+                g: 5,
+                b: 5,
+                overall: 0,
+            },
+        },
+    },
+    [CELL_TYPES.CHASM]: {
+        // 7,     7,      15,     4,      4,          8
+        fg: {
+            baseColor: {
+                r: 30,
+                g: 30,
+                b: 50,
+            },
+            variance: {
+                r: 4,
+                g: 4,
+                b: 8,
+                overall: 0,
+            },
+        },
+        bg: {
+            baseColor: {
+                r: 0,
+                g: 0,
+                b: 0,
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 0,
+            },
+        },
+    },
+    [CELL_TYPES.CHASM_EDGE]: {
+        // 8,     8,      20,     2,      2,          2,          0,
+        fg: {
+            baseColor: {
+                r: 191,
+                g: 191,
+                b: 191,
+            },
+            variance: {
+                r: 2,
+                g: 2,
+                b: 2,
+                overall: 2,
+            },
+        },
+        bg: {
+            baseColor: {
+                r: 30,
+                g: 30,
+                b: 30,
             },
             variance: {
                 r: 0,
@@ -1116,14 +1218,14 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 10,
-                g: 10,
-                b: 10,
+                r: 20,
+                g: 20,
+                b: 20,
             },
             variance: {
-                r: 0,
-                g: 0,
-                b: 0,
+                r: 5,
+                g: 5,
+                b: 5,
                 overall: 0,
             },
         },

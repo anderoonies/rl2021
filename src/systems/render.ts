@@ -1,6 +1,6 @@
 import {Query, System} from 'ape-ecs';
-import {Color as ROTColor, Display} from 'rot-js';
-import {Creature, DancingColor, Light, Memory, Position, Renderable, Visible} from '../components';
+import {Display} from 'rot-js';
+import {Creature, Light, Memory, Position, Renderable, Visible} from '../components';
 import type {DEBUG_FLAGS} from '../game';
 
 const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
@@ -36,40 +36,8 @@ class RenderSystem extends System {
             const position = entity.getOne(Position);
             const renderable = entity.getOne(Renderable);
 
-            fg = {
-                ...renderable.baseFG,
-            };
-            bg = {
-                ...renderable.baseBG,
-            };
+            (fg = renderable.fg), (bg = renderable.bg);
             char = renderable.char;
-            let dancingColor = entity.getOne(DancingColor);
-            if (dancingColor) {
-                if (dancingColor.timer <= 0) {
-                    const dancingDeviations = {
-                        ...dancingColor.deviations,
-                    };
-                    dancingColor.update({timer: dancingColor.period});
-                    const mixed = ROTColor.randomize(
-                        [bg.r, bg.g, bg.b],
-                        [dancingDeviations.r / 2, dancingDeviations.g / 2, dancingDeviations.b / 2]
-                    );
-                    renderable.update({
-                        bg: {
-                            r: mixed[0],
-                            g: mixed[1],
-                            b: mixed[2],
-                        },
-                    });
-                }
-                fg = {
-                    ...renderable.fg,
-                };
-                bg = {
-                    ...renderable.bg,
-                };
-                dancingColor.update({timer: dancingColor.timer - dt / 2});
-            }
             this.display.draw(
                 position.x,
                 position.y,

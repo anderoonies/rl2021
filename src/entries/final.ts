@@ -1,3 +1,3 @@
 import {launch} from './index';
 
-launch('final', {});
+launch('final', {OMNISCIENT: false});

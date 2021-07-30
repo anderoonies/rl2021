@@ -1,6 +1,6 @@
 import {Query, System} from 'ape-ecs';
 import {Display} from 'rot-js';
-import {Creature, Position, Renderable} from '../components';
+import {Creature, Position, Renderable, Visible} from '../components';
 
 const toRGBA = ([r, g, b, a]: [number, number, number, number?]) => {
     if (a !== undefined) {
@@ -15,7 +15,7 @@ export default class CreatureRender extends System {
     display: Display;
 
     init(display: Display) {
-        this.query = this.world.createQuery().fromAll(Creature, Position);
+        this.query = this.world.createQuery().fromAll(Creature, Position, Visible);
         this.display = display;
     }
 

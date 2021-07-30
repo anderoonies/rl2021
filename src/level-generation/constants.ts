@@ -66,7 +66,7 @@ export enum CELL_FLAGS {
     NEVER_PASSABLE = 1 << 4,
 }
 
-export const CELL_TYPES = {
+export const CELL_TYPES: Record<string, number> = {
     DEBUG: -10,
     EMPTY: -1,
     WALL: 17,
@@ -90,6 +90,35 @@ export const CELL_TYPES = {
     TORCH_WALL: 18,
     HAZE: 19,
     LIGHT_POOL: 20,
+    CHASM: 21,
+    CHASM_EDGE: 22,
+    LAVA: 23,
+};
+
+export enum LIQUID_TYPES {
+    WATER,
+    LAVA,
+    CHASM,
+}
+export enum WREATH_TYPES {
+    SHALLOW_WATER = CELL_TYPES.SHALLOW_WATER,
+    NONE = CELL_TYPES.EMPTY,
+    CHASM_EDGE = CELL_TYPES.CHASM_EDGE,
+}
+
+export const LIQUID_CELLS: Record<LIQUID_TYPES | WREATH_TYPES, CellConstant> = {
+    [LIQUID_TYPES.WATER]: CELL_TYPES.LAKE,
+    [WREATH_TYPES.SHALLOW_WATER]: CELL_TYPES.SHALLOW_WATER,
+    [LIQUID_TYPES.CHASM]: CELL_TYPES.CHASM,
+    [WREATH_TYPES.CHASM_EDGE]: CELL_TYPES.CHASM_EDGE,
+    [LIQUID_TYPES.LAVA]: CELL_TYPES.LAVA,
+    [WREATH_TYPES.NONE]: CELL_TYPES.EMPTY,
+};
+
+export const WREATH_FOR_LIQUID: Record<LIQUID_TYPES, WREATH_TYPES> = {
+    [LIQUID_TYPES.WATER]: WREATH_TYPES.SHALLOW_WATER,
+    [LIQUID_TYPES.LAVA]: WREATH_TYPES.NONE,
+    [LIQUID_TYPES.CHASM]: WREATH_TYPES.CHASM_EDGE,
 };
 
 export const EXIT_TYPE = (CELL_TYPE: CellConstant) => {
@@ -165,7 +194,10 @@ export const DIR_TO_TRANSFORM = {
 };
 
 // colors
-export const COLORS = {
+export const COLORS: Record<
+    keyof typeof CELL_TYPES,
+    {bg: string; fg: string; dances?: boolean; opacity?: number}
+> = {
     FLOOR: {bg: '#23232b', fg: '#bfbfbf'},
     WALL: {bg: '#f5e3cd', fg: 'black'},
     DOOR: {bg: '#583b30', fg: 'black'},
@@ -174,6 +206,7 @@ export const COLORS = {
     GRANITE: {bg: 'black', fg: 'black'},
     LAKE: {bg: '#5e5eca', fg: 'black', dances: true},
     SHALLOW_WATER: {bg: '#70a0ed', fg: 'black', dances: true},
+    LAVA: {bg: '', fg: '', dances: true},
     GRASS: {bg: '#23232b', fg: '#8bc34a'},
     DEAD_GRASS: {bg: '#23232b', fg: '#8c542b'},
     DEAD_FOLIAGE: {bg: '#23232b', fg: '#8c542b'},
@@ -187,7 +220,7 @@ export const COLORS = {
 };
 
 // cell types
-export const CELLS: Record<CellConstant, CellType> = {
+export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType> = {
     [CELL_TYPES.DEBUG]: {
         type: 'debug',
         letter: ',',
@@ -205,7 +238,7 @@ export const CELLS: Record<CellConstant, CellType> = {
     [CELL_TYPES.FLOOR]: {
         type: 'FLOOR',
         color: COLORS.FLOOR,
-        letter: ' ',
+        letter: String.fromCharCode(0x00b7),
         priority: 9,
         flags: 0,
     },
@@ -296,7 +329,7 @@ export const CELLS: Record<CellConstant, CellType> = {
         type: 'SHALLOW_WATER',
         color: COLORS.SHALLOW_WATER,
         letter: '~',
-        priority: 19,
+        priority: 17,
         flags: 0,
     },
     [CELL_TYPES.GRANITE]: {
@@ -367,13 +400,16 @@ export const CELLS: Record<CellConstant, CellType> = {
                 },
                 variance: {
                     r: 0,
-                    g: 15,
+                    g: 10,
                     b: 7,
                     overall: 0,
                 },
             },
         },
-        flags: CELL_FLAGS.NEVER_PASSABLE,
+        flags:
+            CELL_FLAGS.NEVER_PASSABLE |
+            CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
+            CELL_FLAGS.OBSTRUCTS_VISION,
     },
     [CELL_TYPES.HAZE]: {
         type: 'HAZE',
@@ -406,6 +442,32 @@ export const CELLS: Record<CellConstant, CellType> = {
                     g: 0,
                     b: 0,
                     overall: 0,
+                },
+            },
+        },
+    },
+    [CELL_TYPES.LAVA]: {
+        type: 'LAVA',
+        color: COLORS.EMPTY,
+        letter: '~',
+        priority: 0,
+        flags: CELL_FLAGS.NEVER_PASSABLE | CELL_FLAGS.OBSTRUCTS_PASSIBILITY,
+        // color {47,    13,     0,      10,     7,          0,          0,      true};
+        glowLight: {
+            minRadius: 200,
+            maxRadius: 200,
+            fade: 10,
+            color: {
+                baseColor: {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                },
+                variance: {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    overall: 20,
                 },
             },
         },
@@ -815,9 +877,9 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
     [CELL_TYPES.FLOOR]: {
         bg: {
             baseColor: {
-                r: 35,
-                g: 35,
-                b: 43,
+                r: 10,
+                g: 10,
+                b: 10,
             },
             variance: {
                 r: 0,
@@ -871,9 +933,9 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
     [CELL_TYPES.LAKE]: {
         bg: {
             baseColor: {
-                r: 40,
-                g: 40,
-                b: 150,
+                r: 30,
+                g: 30,
+                b: 120,
             },
             variance: {
                 r: 5,
@@ -884,8 +946,8 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         fg: {
             baseColor: {
-                r: 80,
-                g: 80,
+                r: 60,
+                g: 60,
                 b: 180,
             },
             variance: {
@@ -896,12 +958,42 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
             },
         },
     },
+    [CELL_TYPES.LAVA]: {
+        // fg {20,    20,     20,     100,    10,         0,          0,      true};
+        // bg {70,    20,     0,      15,     10,         0,          0,      true};
+        bg: {
+            baseColor: {
+                r: 150,
+                g: 60,
+                b: 0,
+            },
+            variance: {
+                r: 60,
+                g: 10,
+                b: 0,
+                overall: 0,
+            },
+        },
+        fg: {
+            baseColor: {
+                r: 20,
+                g: 20,
+                b: 20,
+            },
+            variance: {
+                r: 100,
+                g: 10,
+                b: 0,
+                overall: 0,
+            },
+        },
+    },
     [CELL_TYPES.SHALLOW_WATER]: {
         bg: {
             baseColor: {
                 r: 80,
                 g: 80,
-                b: 180,
+                b: 190,
             },
             variance: {
                 r: 0,
@@ -940,9 +1032,9 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 35,
-                g: 35,
-                b: 43,
+                r: 10,
+                g: 10,
+                b: 10,
             },
             variance: {
                 r: 0,
@@ -968,9 +1060,9 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 35,
-                g: 35,
-                b: 43,
+                r: 10,
+                g: 10,
+                b: 10,
             },
             variance: {
                 r: 0,
@@ -996,9 +1088,9 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 35,
-                g: 35,
-                b: 43,
+                r: 10,
+                g: 10,
+                b: 10,
             },
             variance: {
                 r: 0,
@@ -1024,9 +1116,9 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         },
         bg: {
             baseColor: {
-                r: 35,
-                g: 35,
-                b: 43,
+                r: 10,
+                g: 10,
+                b: 10,
             },
             variance: {
                 r: 0,
@@ -1114,7 +1206,7 @@ export const MONSTER_CATALOG: Record<MonsterType, Monster> = {
     [MONSTER_TYPES.KOBOLD]: {
         name: 'kobold',
         ch: 'k',
-        color: {r: 255, g: 0, b: 0, alpha: 1},
+        color: {r: 60, g: 45, b: 30, alpha: 1},
         // this rat is freaking huge
         HP: 100,
         def: 100,
@@ -1131,7 +1223,7 @@ export const MONSTER_CATALOG: Record<MonsterType, Monster> = {
     [MONSTER_TYPES.JACKAL]: {
         name: 'jackal seinfeld',
         ch: 'j',
-        color: {r: 0, g: 255, b: 0, alpha: 1},
+        color: {r: 60, g: 42, b: 27, alpha: 1},
         HP: 100,
         def: 100,
         acc: 100,
@@ -1145,25 +1237,10 @@ export const MONSTER_CATALOG: Record<MonsterType, Monster> = {
         // yep
         isLarge: true,
     },
-    [MONSTER_TYPES.RAT]: {
-        name: 'ratty spaghetti',
-        ch: 'r',
-        color: {r: 100, g: 100, b: 100, alpha: 1},
-        // this rat is freaking huge
-        HP: 100,
-        def: 100,
-        acc: 100,
-        damage: [1],
-        reg: 1,
-        move: 1,
-        attack: 100,
-        blood: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
-        isLarge: true,
-    },
     [MONSTER_TYPES.EEL]: {
         name: 'eelaine benez',
         ch: 'e',
-        color: {r: 200, g: 0, b: 111, alpha: 1},
+        color: {r: 30, g: 12, b: 12, alpha: 1},
         HP: 100,
         def: 100,
         acc: 100,

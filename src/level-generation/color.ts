@@ -1,4 +1,13 @@
-import {PERLIN_COLORS, RANDOM_COLORS, WIDTH, HEIGHT, PERLIN_PERIOD, CELLS} from './constants';
+import {
+    PERLIN_COLORS,
+    RANDOM_COLORS,
+    WIDTH,
+    HEIGHT,
+    PERLIN_PERIOD,
+    CELLS,
+    COLORS,
+    CELL_TYPES,
+} from './constants';
 import {AnnotatedCell, CellColor, Grid, RGBColor} from './types';
 import * as Color from 'color';
 
@@ -141,7 +150,14 @@ const colorizeCellTwoPointOh = ({
     noiseMaps: NoiseMaps;
     row: number;
     col: number;
-}): CellColor => {
+}):
+    | CellColor
+    | (CellColor & {
+          dancing: {
+              period: number;
+              deviations: RGBColor;
+          };
+      }) => {
     let cellType = cell.constant;
     if (cell.constant in noiseMaps) {
         const fgComponentNoiseMaps = noiseMaps[cellType].fg;
@@ -171,8 +187,7 @@ const colorizeCellTwoPointOh = ({
         });
 
         const color: CellColor = {fg, bg};
-
-        if (cell.color.dances) {
+        if (COLORS[cell.type].dances) {
             return {
                 fg: {...color.fg, dancing: {deviations: fgColorRules.variance, period: 10000}},
                 bg: {...color.bg, dancing: {deviations: bgColorRules.variance, period: 10000}},
@@ -203,6 +218,7 @@ const colorizeCellTwoPointOh = ({
             }),
         };
     } else {
+        console.log('hit this case');
         return {
             fg: Color(cell.color.fg).object() as RGBColor,
             bg: Color(cell.color.bg).object() as RGBColor,

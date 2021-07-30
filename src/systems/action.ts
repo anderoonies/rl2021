@@ -18,7 +18,7 @@ import {CELL_FLAGS, HEIGHT, WIDTH} from '../level-generation/constants';
 class ActionSystem extends System {
     moveQuery: Query;
     lightColors: Grid<RGBColor>;
-    tileMap: Grid<{tile: Entity; light: Entity}>;
+    tileMap: Grid<{tile: Entity; light: Entity; monster: Entity}>;
     fov: FOV;
     rotLighting: Lighting;
     lastVisible: Record<string, {visible: -1 | 0 | 1; y: number; x: number}>;
@@ -26,7 +26,7 @@ class ActionSystem extends System {
     init(
         fov: FOV,
         rotLighting: Lighting,
-        tileMap: Grid<{tile: Entity; light: Entity}>,
+        tileMap: Grid<{tile: Entity; light: Entity; monster: Entity}>,
         lightColors: Grid<RGBColor>
     ) {
         this.lightColors = lightColors;
@@ -45,8 +45,17 @@ class ActionSystem extends System {
         }, {});
     }
 
-    canMove({x, y}: {x: number; y: number}): boolean {
-        return !(this.tileMap[y]?.[x]?.tile.getOne(Tile).flags & CELL_FLAGS.OBSTRUCTS_PASSIBILITY);
+    canMove(source: {x: number; y: number}, destination: {x: number; y: number}): boolean {
+        const destinationBlocked =
+            this.tileMap[destination.y]?.[destination.x]?.tile.getOne(Tile).flags &
+            CELL_FLAGS.OBSTRUCTS_PASSIBILITY;
+        // imagine
+        const oneComponentBlocked =
+            this.tileMap[destination.y]?.[source.x]?.tile.getOne(Tile).flags &
+                CELL_FLAGS.OBSTRUCTS_PASSIBILITY ||
+            this.tileMap[source.y]?.[destination.x]?.tile.getOne(Tile).flags &
+                CELL_FLAGS.OBSTRUCTS_PASSIBILITY;
+        return !(destinationBlocked || oneComponentBlocked);
     }
 
     update(tick: number) {
@@ -58,7 +67,7 @@ class ActionSystem extends System {
             }
             for (const move of entity.getComponents(ActionMove)) {
                 const destination = {x: pos.x + move.x, y: pos.y + move.y};
-                if (this.canMove(destination)) {
+                if (this.canMove({x: pos.x, y: pos.y}, destination)) {
                     pos.update({...destination});
                 }
                 if (this.lightColors[pos.y][pos.x]) {
@@ -93,27 +102,38 @@ class ActionSystem extends System {
                     const oldVisibility = visible;
                     if (newVisibility > oldVisibility) {
                         // seeing it anew, either from memory or unseeing
-                        if (newVisibility === 0) {
-                            for (const memory of this.tileMap[y][x].tile.getComponents(Memory)) {
-                                memory.destroy();
-                                this.tileMap[y][x].tile.removeComponent(memory);
+                        Object.entries(this.tileMap[y][x]).forEach(([type, entity]) => {
+                            if (!entity) {
+                                return;
                             }
-                        }
-                        if (!this.tileMap[y][x].tile.has(Visible)) {
-                            this.tileMap[y][x].tile.addComponent({type: Visible});
-                        }
+                            if (newVisibility === 0) {
+                                for (const memory of entity.getComponents(Memory)) {
+                                    memory.destroy();
+                                    entity.removeComponent(memory);
+                                }
+                            }
+                            if (!entity.has(Visible)) {
+                                entity.addComponent({type: Visible});
+                            }
+                            if (!entity?.has(Visible)) {
+                                entity?.addComponent({type: Visible});
+                            }
+                        });
                         this.lastVisible[`${y},${x}`].visible = 1;
                     } else if (newVisibility === oldVisibility) {
                         if (newVisibility > 0) {
                             // fading to memory
-                            if (this.tileMap[y][x].tile.has(Visible)) {
-                                for (const visible of this.tileMap[y][x].tile.getComponents(
-                                    Visible
-                                )) {
-                                    this.tileMap[y][x].tile.removeComponent(visible);
+                            Object.entries(this.tileMap[y][x]).forEach(([type, entity]) => {
+                                if (!entity) {
+                                    return;
                                 }
-                                this.tileMap[y][x].tile.addComponent({type: Memory});
-                            }
+                                if (entity.has(Visible)) {
+                                    for (const visible of entity.getComponents(Visible)) {
+                                        entity.removeComponent(visible);
+                                    }
+                                    entity.addComponent({type: Memory});
+                                }
+                            });
 
                             this.lastVisible[`${y},${x}`].visible = -1;
                         }

@@ -3,11 +3,14 @@ import {TypedComponent as Component} from 'ape-ecs';
 export class ActionMove extends Component<{x: number; y: number}>({x: 0, y: 0}) {}
 
 export class DancingColor extends Component<{
-    deviations: {r: number; g: number; b: number};
+    deviations: {
+        fg: {r: number; g: number; b: number; overall: number};
+        bg: {r: number; g: number; b: number; overall: number};
+    };
     period: number;
     timer: number;
 }>({
-    deviations: {r: 0, g: 0, b: 0},
+    deviations: {fg: {r: 0, g: 0, b: 0, overall: 0}, bg: {r: 0, g: 0, b: 0, overall: 0}},
     period: 0,
     timer: 0,
 }) {}

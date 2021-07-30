@@ -75,7 +75,7 @@ type PerlinColorDefinition = {
 };
 type CellColorLayer = RGBColor & {
     dancing?: {
-        deviations: {r: number; g: number; b: number};
+        deviations: {r: number; g: number; b: number; overall: number};
         period: number;
     };
 };

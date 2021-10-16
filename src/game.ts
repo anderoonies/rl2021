@@ -9,6 +9,7 @@ import {
     Creature,
     DancingColor,
     DebugPassableArcCounter,
+    Highlight,
     Light,
     Map,
     PlayerControlled,
@@ -17,7 +18,7 @@ import {
     Tile,
     Visible,
 } from './components';
-import {CELL_FLAGS, CELL_TYPES, HEIGHT, WIDTH} from './level-generation/constants';
+import {CELLS, CELL_FLAGS, CELL_TYPES, HEIGHT, WIDTH} from './level-generation/constants';
 import {
     coordinatesAreInMap,
     impassableArcCount,
@@ -28,12 +29,13 @@ import {Dungeon, Grid, RGBColor} from './level-generation/types';
 import ActionSystem from './systems/action';
 import DancingColorUpdate from './systems/dancingcolor';
 import DebugArcCountRender from './systems/debugarccountrender';
+import HighlightRender from './systems/highlight';
 import LightSystem from './systems/light';
 import MemoryRenderSystem from './systems/memoryrender';
 import CreatureRender from './systems/playerrender';
 import RenderSystem from './systems/render';
 
-const options: Partial<DisplayOptions> = {
+const graphicalDisplayOptions: Partial<DisplayOptions> = {
     // layout: "tile",
     bg: 'black',
     fontSize: 20,
@@ -43,6 +45,8 @@ const options: Partial<DisplayOptions> = {
     height: HEIGHT,
 };
 
+const textDisplayOptions: Partial<DisplayOptions> = {};
+
 export type DEBUG_FLAGS = {
     OMNISCIENT?: boolean;
     SHOW_PASSABLE_ARC_COUNT?: boolean;
@@ -50,6 +54,7 @@ export type DEBUG_FLAGS = {
 
 export default class Game {
     display: ROT.Display;
+    textDisplay: ROT.Display;
     world: World;
     globalEntity: Entity;
     mapEntity: Entity;
@@ -73,9 +78,14 @@ export default class Game {
     ) {
         this.DEBUG_FLAGS = {OMNISCIENT: false, SHOW_PASSABLE_ARC_COUNT: false, ...DEBUG_FLAGS};
         this.display = new ROT.Display({
-            ...options,
+            ...graphicalDisplayOptions,
             width: this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT ? 40 : WIDTH,
             height: this.DEBUG_FLAGS.SHOW_PASSABLE_ARC_COUNT ? 20 : HEIGHT,
+        });
+        this.textDisplay = new ROT.Display({
+            ...textDisplayOptions,
+            width: this.display.getOptions().width,
+            height: 2,
         });
         this.world = new World();
 
@@ -83,19 +93,12 @@ export default class Game {
         this.tickTime = 0;
         this.update(this.lastUpdate);
         container.appendChild(this.display.getContainer());
+        container.appendChild(this.textDisplay.getContainer());
 
         this.registerComponents();
 
-        const player = this.world.createEntityTypesafe<
-            [
-                {type: typeof Creature},
-                {type: typeof PlayerControlled},
-                {type: typeof Renderable},
-                {type: typeof Visible},
-                {type: typeof Light}
-            ]
-        >({
-            c: [
+        const player = this.world.createEntityTypesafe({
+            components: [
                 {type: Creature},
                 {type: PlayerControlled},
                 {
@@ -146,6 +149,7 @@ export default class Game {
         this.world.registerSystem('light', LightSystem, [this.display]);
         this.world.registerSystem('postrender', CreatureRender, [this.display]);
         this.world.registerSystem('postrender', DebugArcCountRender, [this.display]);
+        this.world.registerSystem('postrender', HighlightRender, [this.display]);
 
         const playerPosition = player.getOne(Position);
         this.fov.compute(
@@ -186,6 +190,31 @@ export default class Game {
                     lastMouseY = y;
                 }
             });
+        const flattenFlavor = (dungeon: Dungeon, y: number, x: number) => {
+            const terrainFlavor = CELLS[this.dungeon.TERRAIN[y][x]].flavor;
+            const dungeonFlavor = CELLS[this.dungeon.DUNGEON[y][x]].flavor;
+            return terrainFlavor ?? dungeonFlavor ?? '';
+        };
+        window.addEventListener('mousemove', e => {
+            const [x, y] = this.display.eventToPosition(e);
+            console.log(`${x},${y}`);
+            if ((x !== lastMouseX || y !== lastMouseY) && coordinatesAreInMap(y, x)) {
+                const flavorText = flattenFlavor(this.dungeon, y, x);
+                tiles[y][x].tile?.addComponent({type: Highlight});
+                for (const highlight of tiles[lastMouseY]?.[lastMouseX]?.tile.getComponents(
+                    Highlight
+                )) {
+                    tiles[lastMouseY]?.[lastMouseX]?.tile.removeComponent(highlight);
+                }
+                this.textDisplay.clear();
+                lastMouseX = x;
+                lastMouseY = y;
+                if (!flavorText) {
+                    return;
+                }
+                this.textDisplay.drawText(0, 0, flavorText);
+            }
+        });
         window.addEventListener('keydown', e => {
             const entities = this.playerQuery.refresh().execute();
             for (const player of entities) {
@@ -307,10 +336,8 @@ export default class Game {
         playerSpot &&
             this.player.addComponent({type: Position, x: playerSpot.col, y: playerSpot.row});
         this.map.create((col, row, contents) => {
-            const tile = this.world.createEntityTypesafe<
-                [{type: typeof Position}, {type: typeof Renderable}, {type: typeof Tile}]
-            >({
-                c: [
+            const tile = this.world.createEntityTypesafe({
+                components: [
                     {type: Position, x: col, y: row},
                     {
                         type: Renderable,
@@ -340,10 +367,8 @@ export default class Game {
             }
             let light;
             if (lightColors[row][col]) {
-                light = this.world.createEntityTypesafe<
-                    [{type: typeof Light}, {type: typeof Position}]
-                >({
-                    c: [
+                light = this.world.createEntityTypesafe({
+                    components: [
                         {
                             type: Light,
                             base: {...lightColors[row][col], alpha: lightColors[row][col].alpha},
@@ -375,10 +400,8 @@ export default class Game {
         });
 
         monsters.forEach(monster => {
-            const monsterEntity = this.world.createEntityTypesafe<
-                [{type: typeof Renderable}, {type: typeof Position}, {type: typeof Creature}]
-            >({
-                c: [
+            const monsterEntity = this.world.createEntityTypesafe({
+                components: [
                     {
                         type: Renderable,
                         char: monster.info.ch,

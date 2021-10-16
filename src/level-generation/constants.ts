@@ -1,9 +1,12 @@
+import {floor} from 'lodash';
 import {
     CellConstant,
-    CellType, Horde, Monster,
+    CellType,
+    Horde,
+    Monster,
     MonsterType,
     PerlinColorDefinition,
-    RandomColorDefiniton
+    RandomColorDefiniton,
 } from './types';
 
 // global
@@ -239,7 +242,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
     [CELL_TYPES.FLOOR]: {
         type: 'FLOOR',
         color: COLORS.FLOOR,
-        letter: String.fromCodePoint(0x2E31),
+        letter: String.fromCodePoint(0x2e31),
         // letter: String.fromCodePoint(0x2E),
         priority: 9,
         flags: 0,
@@ -253,6 +256,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
             CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
             CELL_FLAGS.OBSTRUCTS_VISION |
             CELL_FLAGS.NEVER_PASSABLE,
+        flavor: 'A hard wall, crudely carved into the cavern.',
     },
     [CELL_TYPES.ROCK]: {
         type: 'ROCK',
@@ -326,6 +330,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         //         }
         //     }
         // },
+        flavor: 'A deep, cold lake, fed by springs from below.'
     },
     [CELL_TYPES.SHALLOW_WATER]: {
         type: 'SHALLOW_WATER',
@@ -333,6 +338,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         letter: '~',
         priority: 17,
         flags: 0,
+        flavor: 'Knee-high water ebbs around the lake.'
     },
     [CELL_TYPES.GRANITE]: {
         type: 'GRANITE',
@@ -354,6 +360,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         letter: '"',
         priority: 10,
         flags: 0,
+        flavor: "A grass accustomed to the cavern's dim light.",
     },
     [CELL_TYPES.DEAD_GRASS]: {
         type: 'DEAD_GRASS',
@@ -375,6 +382,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         letter: String.fromCharCode(0x03b3),
         priority: 10,
         flags: CELL_FLAGS.OBSTRUCTS_VISION,
+        flavor: 'Lush foliage.',
     },
     [CELL_TYPES.RUBBLE]: {
         type: 'RUBBLE',
@@ -412,6 +420,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
             CELL_FLAGS.NEVER_PASSABLE |
             CELL_FLAGS.OBSTRUCTS_PASSIBILITY |
             CELL_FLAGS.OBSTRUCTS_VISION,
+        flavor: 'A wall-mounted torch casts warm light.',
     },
     [CELL_TYPES.HAZE]: {
         type: 'HAZE',
@@ -473,6 +482,7 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
                 },
             },
         },
+        flavor: 'A molten pool of lava radiates heat.',
     },
     [CELL_TYPES.CHASM]: {
         type: 'CHASM',
@@ -480,13 +490,15 @@ export const CELLS: Record<typeof CELL_TYPES[keyof typeof CELL_TYPES], CellType>
         letter: String.fromCodePoint(0x2e2c),
         priority: 0,
         flags: CELL_FLAGS.NEVER_PASSABLE | CELL_FLAGS.OBSTRUCTS_PASSIBILITY,
+        flavor: "A gaping chasm in the cavern's floor.",
     },
     [CELL_TYPES.CHASM_EDGE]: {
         type: 'CHASM',
         color: COLORS.CHASM_EDGE,
-        letter: String.fromCodePoint(0x2E31),
+        letter: String.fromCodePoint(0x2e31),
         priority: 16,
         flags: 0,
+        flavor: 'Air rushes from the cavern below.',
     },
 };
 
@@ -979,7 +991,7 @@ export const PERLIN_COLORS: Record<CellConstant, PerlinColorDefinition> = {
         // bg {70,    20,     0,      15,     10,         0,          0,      true};
         bg: {
             baseColor: {
-                r: 150,
+                r: 170,
                 g: 60,
                 b: 0,
             },

@@ -22,6 +22,7 @@ export type CellType = {
     flags: CellFlags;
     glowLight?: LightSource;
     terrain?: CellConstant;
+    flavor?: string;
 };
 export type RoomType = typeof ROOM_TYPES[keyof typeof ROOM_TYPES];
 export type FeatureType = typeof DUNGEON_FEATURE_CATALOG[keyof typeof DUNGEON_FEATURE_CATALOG];

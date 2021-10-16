@@ -31,8 +31,8 @@ export class Renderable extends Component({
     baseBG: {r: 0, g: 0, b: 0, alpha: 0},
     bg: {r: 0, g: 0, b: 0, alpha: 0},
 }) {}
-export class Visible extends Component({}) {}
-export class Memory extends Component({}) {}
+export class Visible extends Component() {}
+export class Memory extends Component() {}
 
 export class Tile extends Component<{
     flags: number;
@@ -46,6 +46,8 @@ export class Map extends Component({
     tiles: [[]],
 }) {}
 
-export class Creature extends Component({}) {}
-export class PlayerControlled extends Component({}) {}
+export class Highlight extends Component() {}
+
+export class Creature extends Component() {}
+export class PlayerControlled extends Component() {}
 export class DebugPassableArcCounter extends Component<{count: number}>({count: 0}) {}
